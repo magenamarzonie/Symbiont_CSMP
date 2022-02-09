@@ -15,6 +15,9 @@ library(ggsci)
 ```
 
 
+#basically ned to go through and save each output as an rds per species and then you save those rds. 
+#Then read them in in the next file 
+
 # Fig 2A Pocillopora Phylogenetic Tree
 ```{r}
 #keeping A.cf. humilis data - filtering out Poci and unknown samples 
@@ -22,12 +25,12 @@ poci_seqs <- seqs_long %>% filter(str_detect(Species, "P|k"))
 
 #read in file 
 fasta <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
-  filter(label %in% poci_seqs$name) %>%
+  filter(label %in% poci_seqs$name) %>%   #only keeping DNA seqs that appear in seqs_long subset 
   filter(!str_detect(label, "A|G")) %>%
   deframe() %>%
   as_dna()
 
-#
+
 kdist <- fasta %>%
   dna_to_DNAbin() %>%
   kdistance(k = 5, residues = "DNA", method = "edgar") %>%
@@ -93,75 +96,33 @@ guides(fill=guide_legend(ncol=3))
 p_bar_uni + p_tree_tip
 ```
 
-# Figure 2 - Profile + sequence + Unifrac UPGMA tree results
-
+# Acropora tree 
 ```{r}
-plot_df <- all_data %>%
-  mutate(plate_position = fct_relevel(plate_position, sample_order$plate_position))
-breaks <- colnames(profiles_raw %>% select(-sample_name))
-
-ggplot(plot_df, aes(value_rel, plate_position)) +
-geom_bar(stat = "identity", aes(fill = name, colour = name)) +
-#facet_wrap(~coral_species, nrow = 1, scales = "free_x") +
-theme(aspect.ratio = 0.5, legend.position = "none", axis.text.y=element_blank(), axis.ticks.y = element_blank(),
-      axis.text.x=element_blank(), axis.ticks.x = element_blank()) +
-scale_fill_manual(values = all_pal, breaks = colnames(profiles_raw %>% select(-sample_name))) +
-scale_colour_manual(values = all_pal, breaks = colnames(profiles_raw %>% select(-sample_name))) +
-geom_vline(xintercept = 1, size = 1) +
-#guides(fill=guide_legend(ncol=3)) +
-ylab("Sample") +
-xlab("ITS2 Profile (left) and Sequence (right) relative abundance")
-
-# Plot IDEA ORDER SAMPLES BY UNIFRAC DISTANCES
-
-plot_df <- all_data %>%
-  mutate(plate_position = fct_relevel(plate_position, ggtree_samps$label))
-
-theme_set(theme_bw())
-
-p_bar_uni <- 
-ggplot(plot_df, aes(value_rel, plate_position)) +
-geom_bar(stat = "identity", aes(fill = name, colour = name)) +
-#facet_wrap(~coral_species, nrow = 1, scales = "free_x") +
-theme(aspect.ratio = 0.3, legend.position = "none", axis.text.y=element_blank(), axis.ticks.y = element_blank(),
-      axis.text.x=element_blank(), axis.ticks.x = element_blank(),
-      axis.title.x = element_blank(), axis.title.y = element_blank(),
-      panel.border = element_blank(), panel.grid.major = element_blank(),
-panel.grid.minor = element_blank(), axis.ticks = element_blank()) +
-scale_fill_manual(values = all_pal, breaks = levels(profile_data$name)) +
-scale_colour_manual(values = all_pal, breaks = levels(profile_data$name)) +
-geom_vline(xintercept = 1, size = 1) +
-guides(fill=guide_legend(ncol=3))
-```
-
-#Pocillopora seq bar chart and UPGMA tree 
-```{r}
-#keeping A.cf. humilis data - filtering out Poci and unknown samples 
-poci_seqs <- seqs_long %>% filter(str_detect(Species, "P|k"))
+acro_seqs <- seqs_long %>% filter(str_detect(Species, "A"))
 
 #read in file 
-fasta <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
-  filter(label %in% poci_seqs$name) %>%
+fasta_a <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
+  filter(label %in% acro_seqs$name) %>%   #only keeping DNA seqs that appear in seqs_long subset 
   filter(!str_detect(label, "A|G")) %>%
   deframe() %>%
   as_dna()
 
-#
-kdist <- fasta %>%
+
+kdist_a <- fasta_a %>%
   dna_to_DNAbin() %>%
   kdistance(k = 5, residues = "DNA", method = "edgar") %>%
   as.matrix()
 
-tree <- kdist %>% phangorn::upgma()
+tree_a <- kdist_a %>% phangorn::upgma()
 
 #wide to long format
 seqs_wide <- seqs_long %>%
   dplyr::select(plate_position, name, value) %>%
   filter(!str_detect(name, "A|G")) %>%
-  filter(name %in% poci_seqs$name) %>%
+  filter(name %in% acro_seqs$name) %>%
   pivot_wider(names_from = name, values_from = value) %>%
   mutate(across(everything(), replace_na, 0)) %>%
-  filter(plate_position %in% poci_seqs$plate_position) %>%
+  filter(plate_position %in% acro_seqs$plate_position) %>%
   tibble::column_to_rownames(var = "plate_position")
 
 #matrix with unifrac distances for each coral sample  
@@ -181,7 +142,6 @@ p_tree <- ggtree(hclust_samps, size = 0.2) +
 
 p_tree$data <- left_join(p_tree$data, full_meta, by = c("label" = "plate_position"))
 
-library(ggsci)
 
 p_tree_tip <- p_tree + geom_tippoint(aes(color=Reef), size=0.3, alpha=1) +
   scale_color_d3(palette = "category20")
@@ -189,12 +149,12 @@ p_tree_tip <- p_tree + geom_tippoint(aes(color=Reef), size=0.3, alpha=1) +
 p_tree_tip
 
 plot_df <- all_data %>%
-  filter(str_detect(Species, "P|k")) %>%
+  filter(str_detect(Species, "Ahumilis")) %>%
   mutate(plate_position = fct_relevel(plate_position, ggtree_samps$label))
 
 theme_set(theme_bw())
 
-#plot for a. cf. humilis 
+
 p_bar_uni <- 
 ggplot(plot_df, aes(value_rel, plate_position)) +
 geom_bar(stat = "identity", aes(fill = name, colour = name)) +
@@ -212,3 +172,4 @@ guides(fill=guide_legend(ncol=3))
 
 p_bar_uni + p_tree_tip
 ```
+

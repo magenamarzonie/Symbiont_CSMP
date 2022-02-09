@@ -304,6 +304,12 @@ poc_data %>%
 ```
 
 
+#Venn diagram to show profile overlap 
+```{r}
+
+```
+
+
 ## What portion of the total per-sample sequence does the profile comprise
 ```{r}
 #reminder that p_ is the profile, need to calculate proportion of this relative to all reads in sample
