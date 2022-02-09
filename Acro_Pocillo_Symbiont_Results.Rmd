@@ -1,0 +1,657 @@
+
+```{r}
+library(tidyverse)
+library(kmer)
+library(phangorn)
+library(GUniFrac)
+library(ggtree)
+library(patchwork)
+library(bioseq)
+library(ape)
+library(Biostrings)
+```
+
+# Custom functions
+
+```{r}
+dna_to_DNAbin <- function (dna){
+  DNAbin <- as_DNAbin(dna)
+  names(DNAbin) <- names(dna)
+  return(DNAbin)
+}
+
+read_fasta_df <- function (file = "") {
+  fasta <- readLines(file)
+  ind <- grep(">", fasta)
+  s <- data.frame(ind = ind, from = ind + 1, to = c((ind - 
+    1)[-1], length(fasta)))
+  seqs <- rep(NA, length(ind))
+  for (i in 1:length(ind)) {
+    seqs[i] <- paste(fasta[s$from[i]:s$to[i]], collapse = "")
+  }
+  tib <- tibble(label = gsub(">", "", fasta[ind]), sequence = seqs)
+  return(tib)
+}
+```
+
+# Sequence and Profile tables
+
+```{r}
+# Import sequence table
+seqs <- read_tsv("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.absolute.abund_and_meta.txt") %>%
+    mutate(sample_name = as.factor(sample_name))
+
+meta <- seqs %>% select(sample_name) %>%
+  mutate(plate = case_when(str_detect(sample_name, "Plate1") ~ "Plate1",
+                           str_detect(sample_name, "Plate2") ~ "Plate2",
+                           str_detect(sample_name, "Plate3") ~ "Plate3",
+                           str_detect(sample_name, "Plate4") ~ "Plate4",
+                           str_detect(sample_name, "Plate5") ~ "Plate5", 
+                           str_detect(sample_name, "Plate6") ~ "Plate6", 
+                           str_detect(sample_name, "Plate7") ~ "Plate7", 
+                           TRUE ~ "Other"),
+         position = str_sub(sample_name, start = 8, end = 11),
+         plate_position = paste0(plate, "_", position)) %>%
+  filter(!(is.na(sample_name)))
+
+mag_meta <- read_csv("20210612_marzonie/CSMP_symbiont_metadata2020.csv") %>%
+  dplyr::rename(plate_position = `Sample ID`)
+
+full_meta <- left_join(meta, mag_meta) %>%
+  select(sample_name:Morphotype)
+
+# Convert to long format
+seqs_long <- seqs %>%
+  filter(!is.na(sample_name)) %>%
+  select(sample_name, `A1`:`1275234_G`) %>%
+  pivot_longer(`A1`:`1275234_G`) %>%
+  filter(value > 0) %>% # Remove zero values
+  left_join(., full_meta)
+
+# Q. Are we working with the post-med seqs according to the metadata in seqs?
+san_check <- seqs_long %>%
+  group_by(sample_name) %>%
+  summarise(total = sum(value)) #A. yes
+
+# Create a list of samples to keep that didnt fail to sequence
+keepers_ss <- san_check %>%
+  filter(total > 1500)
+
+# Filter out the failed samples
+seqs_long <- seqs_long %>%
+  filter(sample_name %in% keepers_ss$sample_name) %>%
+  group_by(sample_name) %>%
+  mutate(value_rel = value/sum(value)) %>% # Convert to relative abundance
+  ungroup() %>%
+  mutate(name = as.factor(name)) # Make sample names a factor (NOTE - DONT USE NUMBERS AS SAMPLE NAMES)
+
+# Create a random palette for each sequence
+n <- length(levels(seqs_long$name))
+seqs_pal = rainbow(n, s=.6, v=.9)[sample(1:n,n, replace = FALSE)]
+names(seqs_pal) <- levels(seqs_long$name)
+
+# Read in the profile data
+profiles_raw <- read_tsv("20210612_marzonie/186_20211115_03_DBV_20211116T024440.profiles.absolute.abund_and_meta.txt", skip = 6) %>%
+    select(sample_name = `...2`, `A1/A1h`:`C42a/C1-C42.2`) %>%
+    filter(!is.na(sample_name))
+
+profiles_long <- profiles_raw %>%
+  pivot_longer(`A1/A1h`:`C42a/C1-C42.2`) %>% # Convert it to long format
+  mutate(name = paste0("p_", name)) %>% # Add a p_ to the beginning of each profile (Some profiles are single sequence profiles and clash with the Sequence names)
+  filter(sample_name %in% seqs_long$sample_name) %>% # Remove samples that dont appear in the Sequence dataframe
+  group_by(sample_name) %>%
+  mutate(value = as.numeric(value)) %>%
+  filter(value > 0) %>% # Remove 0 abundance profiles
+  mutate(sample_name = as.factor(sample_name),
+         name = as.factor(name)) %>% # DONT USE NUMBERS FOR SAMPLE NAMES
+  ungroup() %>%
+  left_join(., full_meta) # Add in metadata
+
+# What is the total number of profile-related sequences in each sample?
+profiles_sum <- profiles_long %>%
+  group_by(sample_name) %>%
+  summarise(total = sum(value))
+
+# How many sequences in each sample are not part of a profile?
+residual <- left_join(profiles_sum, san_check, by = "sample_name") %>%
+  mutate(residual = total.y - total.x) %>%
+  select(sample_name, value = residual) %>%
+  mutate(name = "non-profile sequences") %>%
+  left_join(., full_meta)
+
+# Combine the profiles and non-profile sequences
+profile_data <- rbind(profiles_long, residual) %>%
+  group_by(sample_name) %>%
+  mutate(value_rel = value/sum(value)) # convert to relative abundance - in that sample 
+
+# Create palette for profiles (this is a darker palette)
+n <- length(levels(profile_data$name))
+profile_pal = rainbow(n, s=.6, v=.6)[sample(1:n,n, replace = FALSE)]
+names(profile_pal) <- levels(profile_data$name)
+
+# Merge the palettes and replace the non-profile sequences with grey
+all_pal <- c(seqs_pal, profile_pal)
+all_pal['non-profile sequences'] <- "#808080" 
+
+# Join profiles and sequence data together into single dataframe and add more metadata
+all_data <- rbind(seqs_long, profile_data) %>%
+  mutate(coral_genus = case_when(str_detect(Species, "P|k") ~ "Pocillopora",
+                                 TRUE ~ "Acropora"))
+
+
+sample_order <- profiles_raw %>%
+  select(sample_name) %>%
+  left_join(., full_meta)
+```
+
+
+
+# Library stats
+```{r}
+# How many samples per species?
+full_meta %>%
+  group_by(Species) %>% 
+summarise(total_samples = n())
+
+# Total number of sequences (for whole library)? 
+all_data %>%
+  filter(!(str_detect(name, "p_")),
+         name != "non-profile sequences") %>% 
+  summarise(total_seqs = sum(value))
+
+#15916358 total 	
+
+#Total number of sequences (per species)? 
+all_data %>%
+    filter(!(str_detect(name, "p_"))) %>% 
+  group_by(Species) %>%
+  summarise(total_seqs = sum(value))
+
+#Ahumilis	13254490			
+#Pmeandrina	7025016			
+#Pverrucosa	8342780			
+#Unknown	3210430			
+
+
+# filtering stats? (sequences that are filtered, and samples that removed)
+#Create a list of removed samples that failed to sequence
+filtered_ss <- san_check %>% 
+  filter(total < 1500)
+# 3 samples removed 
+#Plate4_B007 (1071 reads)
+#Plate5_G011 (25 reads)
+#Plate7_D009 (122 reads)
+
+
+# Average per sample sequencing depth? (per coral host genus, and per coral species)
+#Avergae per sample across all spp
+all_data %>%
+  summarise(per_sample = sum(value)) %>%
+  summarise(mean_all = mean(per_sample))
+# Across all:  52529
+
+#average per sample per coral host genus 
+all_data %>%
+  group_by(coral_genus, sample_name) %>% 
+  summarise(per_sample = sum(value)) %>%
+  summarise(mean_all = mean(per_sample))
+#Acropora	50978.81			
+#Pocillopora	53694.29	
+
+
+#average per sample per coral host species 
+#sd for ach 
+all_data %>% 
+  group_by(Species, sample_name) %>% 
+  summarise(per_sample = sum(value)) %>%
+  summarise(mean_all = mean(per_sample))
+# Species
+# Ahumilis	50978.81			
+# Pmeandrina	52819.67			
+# Pverrucosa	54886.71			
+# Unknown	52630.00	
+```
+
+#Number of sequences per symbiont genera 
+```{r}
+# Total number of Cladocopium 
+all_data %>%
+  filter(!(str_detect(name, "p_"))) %>%
+  filter(str_sub(name, 1, 1) == "C" | str_detect(name, "_C")) %>% 
+  summarise(sum = sum(value))
+# 15914788 
+#15914788 / total seqs = 99.99014 % Cladocopium 
+
+#Total number of Symbiodinium
+all_data %>%
+  filter(!(str_detect(name, "p_"))) %>%
+  filter(str_sub(name, 1, 1) == "A" | str_detect(name, "_A")) %>% 
+  summarise(sum = sum(value)) 
+# 1552	total/ total seqs = 
+
+# Total number of Durusdinium sequences
+all_data %>%
+  filter(!(str_detect(name, "p_"))) %>%
+  filter(str_sub(name, 1, 1) == "D" | str_detect(name, "_D")) %>% 
+  summarise(sum = sum(value)) 
+
+# Relative proportions of genera in the dataset (in terms of sequence abundance)
+
+```
+
+# Table 1. Sequences data 
+Get the above summary sequence statistics into a useful table - Use the gt package
+Ues the gt package. 
+```{r}
+#maybe follow this tutorial in a separate data sheet 
+library(gt)   #gt package to create publication quality tables 
+```
+
+# Pocillopora results
+
+```{r}
+#total type profiles across Pocilloporidae 
+poc_data <- all_data %>%
+  filter(coral_genus == "Pocillopora")
+
+poc_data %>%
+  filter(str_detect(name, "p_")) %>%    #profiles start with p_
+  group_by(name) %>%
+  count() %>%
+  arrange(desc(n)) 
+#41 total profiles in Pocillopora 
+```
+- Are the DIVs special? 
+-is PSba diversity congruent iwth profile diversity? 
+
+## Number of profiles total
+## Profile congruence with P. veruucosa ID (what are the exceptions)
+Most abundant profile
+What are the characteristics of the veru profiles? Majority sequence? Other DIVs?
+What are the characteristics of the uncommon profiles?
+
+```{r}
+#total number of profiles
+poc_data %>%
+  filter(str_detect(name, "p_")) %>%
+  count() %>% 
+  arrange(desc(n))
+# 352 total samples 
+
+#total number of profiles, in order of highest abundance across P. verrucosa samples 
+poc_data %>%
+  filter(Species == "Pverrucosa") %>% 
+  filter(str_detect(name, "p_")) %>%    #profiles start with p_
+  group_by(name) %>%
+  count() %>%
+  arrange(desc(n)) 
+
+```
+
+
+## Profile congruence with meandrina and acuta? 
+What are the characteristics of the mean/acuta profiles? Majority sequnce? Co-dominance? Other DIVs?
+Are there any indicators of distinct sequences / diagnostic of potential study relevant factors
+```{r}
+#summarise number of samples each profile is in. Highest numbers are the most abundant profiles 
+poc_data %>%
+  filter(Species %in% c("Pmeandrina", "Unknown")) %>% 
+  filter(str_detect(name, "p_")) %>%    #profiles start with p_
+  group_by(name, Species) %>%
+  count() %>%
+  arrange(desc(n)) 
+```
+
+
+## What portion of the total per-sample sequence does the profile comprise
+```{r}
+#reminder that p_ is the profile, need to calculate proportion of this relative to all reads in sample
+#How do I calculate the other nonprofile reads? Which dataframe is the best to use for this? 
+#Maybe somethign like if p_ and make that a column, and then one for without p_ ???
+
+#average across species 
+#refer to fig2 .. 
+```
+
+
+## What factors explain between sample differences in sequence comp?
+
+Uni-frac - create distance matrices
+Permanova - study factors partition variance
+Betadisper - assumpt homogentiy var
+
+
+# Fig 2A Pocillopora Phylogenetic Tree
+```{r}
+#keeping A.cf. humilis data - filtering out Poci and unknown samples 
+poci_seqs <- seqs_long %>% filter(str_detect(Species, "P|k"))
+
+#read in file 
+fasta <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
+  filter(label %in% poci_seqs$name) %>%
+  filter(!str_detect(label, "A|G")) %>%
+  deframe() %>%
+  as_dna()
+
+#
+kdist <- fasta %>%
+  dna_to_DNAbin() %>%
+  kdistance(k = 5, residues = "DNA", method = "edgar") %>%
+  as.matrix()
+
+tree <- kdist %>% phangorn::upgma()
+
+#wide to long format
+seqs_wide <- seqs_long %>%
+  dplyr::select(plate_position, name, value) %>%
+  filter(!str_detect(name, "A|G")) %>%
+  filter(name %in% poci_seqs$name) %>%
+  pivot_wider(names_from = name, values_from = value) %>%
+  mutate(across(everything(), replace_na, 0)) %>%
+  filter(plate_position %in% poci_seqs$plate_position) %>%
+  tibble::column_to_rownames(var = "plate_position")
+
+#matrix with unifrac distances for each coral sample  
+unidist <- GUniFrac(seqs_wide, tree)   #GUniFrac calculates all the distances 
+unifracs <- unidist$unifracs
+du <- unifracs[, , "d_VAW"]  #can change Unifrac type. slices the typ 
+
+hclust_samps <- upgma(du)
+
+ggtree_samps <- ggtree::ggtree(hclust_samps)$data %>%
+  filter(isTip == "TRUE") %>%
+  arrange(y)
+
+p_tree <- ggtree(hclust_samps, size = 0.2) +
+  scale_x_reverse() +
+  theme(aspect.ratio = 1.8)
+
+p_tree$data <- left_join(p_tree$data, full_meta, by = c("label" = "plate_position"))
+
+library(ggsci)
+
+p_tree_tip <- p_tree + geom_tippoint(aes(color=Reef), size=0.3, alpha=1) +
+  scale_color_d3(palette = "category20")
+
+p_tree_tip
+
+plot_df <- all_data %>%
+  filter(str_detect(Species, "P|k")) %>%
+  mutate(plate_position = fct_relevel(plate_position, ggtree_samps$label))
+
+theme_set(theme_bw())
+
+#plot for a. cf. humilis 
+p_bar_uni <- 
+ggplot(plot_df, aes(value_rel, plate_position)) +
+geom_bar(stat = "identity", aes(fill = name, colour = name)) +
+theme(aspect.ratio = 0.5, legend.position = "none", axis.text.y=element_blank(), axis.ticks.y = element_blank(),
+      axis.text.x=element_blank(), axis.ticks.x = element_blank(),
+      axis.title.x = element_blank(), axis.title.y = element_blank(),
+      panel.border = element_blank(), panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(), axis.ticks = element_blank()) +
+scale_fill_manual(values = all_pal, breaks = levels(profile_data$name)) +
+scale_colour_manual(values = all_pal, breaks = levels(profile_data$name)) +
+geom_vline(xintercept = 1, size = 1) +
+guides(fill=guide_legend(ncol=3))
+
+#p_bar_uni is the sequences by colour. P_tree_tip is the tree coloured by reef. 
+
+p_bar_uni + p_tree_tip
+```
+-Cut tree in dendrogram 
+
+# Figure 2 - Profile + sequence + Unifrac UPGMA tree results
+
+```{r}
+plot_df <- all_data %>%
+  mutate(plate_position = fct_relevel(plate_position, sample_order$plate_position))
+breaks <- colnames(profiles_raw %>% select(-sample_name))
+
+ggplot(plot_df, aes(value_rel, plate_position)) +
+geom_bar(stat = "identity", aes(fill = name, colour = name)) +
+#facet_wrap(~coral_species, nrow = 1, scales = "free_x") +
+theme(aspect.ratio = 0.5, legend.position = "none", axis.text.y=element_blank(), axis.ticks.y = element_blank(),
+      axis.text.x=element_blank(), axis.ticks.x = element_blank()) +
+scale_fill_manual(values = all_pal, breaks = colnames(profiles_raw %>% select(-sample_name))) +
+scale_colour_manual(values = all_pal, breaks = colnames(profiles_raw %>% select(-sample_name))) +
+geom_vline(xintercept = 1, size = 1) +
+#guides(fill=guide_legend(ncol=3)) +
+ylab("Sample") +
+xlab("ITS2 Profile (left) and Sequence (right) relative abundance")
+
+# Plot IDEA ORDER SAMPLES BY UNIFRAC DISTANCES
+
+plot_df <- all_data %>%
+  mutate(plate_position = fct_relevel(plate_position, ggtree_samps$label))
+
+theme_set(theme_bw())
+
+p_bar_uni <- 
+ggplot(plot_df, aes(value_rel, plate_position)) +
+geom_bar(stat = "identity", aes(fill = name, colour = name)) +
+#facet_wrap(~coral_species, nrow = 1, scales = "free_x") +
+theme(aspect.ratio = 0.3, legend.position = "none", axis.text.y=element_blank(), axis.ticks.y = element_blank(),
+      axis.text.x=element_blank(), axis.ticks.x = element_blank(),
+      axis.title.x = element_blank(), axis.title.y = element_blank(),
+      panel.border = element_blank(), panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(), axis.ticks = element_blank()) +
+scale_fill_manual(values = all_pal, breaks = levels(profile_data$name)) +
+scale_colour_manual(values = all_pal, breaks = levels(profile_data$name)) +
+geom_vline(xintercept = 1, size = 1) +
+guides(fill=guide_legend(ncol=3))
+```
+
+```{r}
+#Tree + sequences for all samples 
+p_bar_uni + p_tree_tip
+```
+
+
+
+```{r}
+#keeping A.cf. humilis data - filtering out Poci and unknown samples 
+poci_seqs <- seqs_long %>% filter(str_detect(Species, "P|k"))
+
+#read in file 
+fasta <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
+  filter(label %in% poci_seqs$name) %>%
+  filter(!str_detect(label, "A|G")) %>%
+  deframe() %>%
+  as_dna()
+
+#
+kdist <- fasta %>%
+  dna_to_DNAbin() %>%
+  kdistance(k = 5, residues = "DNA", method = "edgar") %>%
+  as.matrix()
+
+tree <- kdist %>% phangorn::upgma()
+
+#wide to long format
+seqs_wide <- seqs_long %>%
+  dplyr::select(plate_position, name, value) %>%
+  filter(!str_detect(name, "A|G")) %>%
+  filter(name %in% poci_seqs$name) %>%
+  pivot_wider(names_from = name, values_from = value) %>%
+  mutate(across(everything(), replace_na, 0)) %>%
+  filter(plate_position %in% poci_seqs$plate_position) %>%
+  tibble::column_to_rownames(var = "plate_position")
+
+#matrix with unifrac distances for each coral sample  
+unidist <- GUniFrac(seqs_wide, tree)   #GUniFrac calculates all the distances 
+unifracs <- unidist$unifracs
+du <- unifracs[, , "d_VAW"]  #can change Unifrac type. slices the typ 
+
+hclust_samps <- upgma(du)
+
+ggtree_samps <- ggtree::ggtree(hclust_samps)$data %>%
+  filter(isTip == "TRUE") %>%
+  arrange(y)
+
+p_tree <- ggtree(hclust_samps, size = 0.2) +
+  scale_x_reverse() +
+  theme(aspect.ratio = 1.8)
+
+p_tree$data <- left_join(p_tree$data, full_meta, by = c("label" = "plate_position"))
+
+library(ggsci)
+
+p_tree_tip <- p_tree + geom_tippoint(aes(color=Reef), size=0.3, alpha=1) +
+  scale_color_d3(palette = "category20")
+
+p_tree_tip
+
+plot_df <- all_data %>%
+  filter(str_detect(Species, "P|k")) %>%
+  mutate(plate_position = fct_relevel(plate_position, ggtree_samps$label))
+
+theme_set(theme_bw())
+
+#plot for a. cf. humilis 
+p_bar_uni <- 
+ggplot(plot_df, aes(value_rel, plate_position)) +
+geom_bar(stat = "identity", aes(fill = name, colour = name)) +
+theme(aspect.ratio = 0.5, legend.position = "none", axis.text.y=element_blank(), axis.ticks.y = element_blank(),
+      axis.text.x=element_blank(), axis.ticks.x = element_blank(),
+      axis.title.x = element_blank(), axis.title.y = element_blank(),
+      panel.border = element_blank(), panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(), axis.ticks = element_blank()) +
+scale_fill_manual(values = all_pal, breaks = levels(profile_data$name)) +
+scale_colour_manual(values = all_pal, breaks = levels(profile_data$name)) +
+geom_vline(xintercept = 1, size = 1) +
+guides(fill=guide_legend(ncol=3))
+
+#p_bar_uni is the sequences by colour. P_tree_tip is the tree coloured by reef. 
+
+p_bar_uni + p_tree_tip
+```
+
+
+
+## Permanova
+#MM: This is currently just for p.verrucosa and also it is not working 
+```{r}
+library(vegan)
+
+dist <- as.dist(du, diag = FALSE)
+
+dim(du)
+
+# Sanity check
+full_meta$plate_position %in% rownames(du)
+
+adonis_meta <- full_meta %>%
+  select(plate_position, Reef, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure) %>%
+  filter(plate_position %in% rownames(du)) %>%
+  tibble::column_to_rownames(var = "plate_position") %>%
+  mutate(depth_cat = round(Depth)) %>%
+  mutate(sample_name = rownames(.))
+
+res <- adonis(dist ~ Species, data = adonis_meta)
+
+test <- betadisper(as.dist(du), adonis_meta$Species)
+plot(test)
+anova(test)
+```
+-we know about species. After accounting for this.. what about latitude? 
+
+
+# Figure 3 - Sequence PCoA clustering 
+
+#Results for Pocillopora 
+```{r}
+# library(NbClust)
+# k <- NbClust(diss = dist, distance = NULL, min.nc = 3, max.nc = 12, method = "ward.D2", index = "silhouette")
+# kdf <- enframe(k$Best.partition) %>%
+#   select(name, k = value)
+pcoares <- pcoa(dist)
+            
+pcoa_df <- as.data.frame(pcoares$vectors) %>%
+  rownames_to_column(var = "plate_position") %>%
+  select(plate_position, Axis.1:Axis.5) %>% 
+  left_join(., adonis_meta %>% rownames_to_column(var = "plate_position"))
+
+ggplot(pcoa_df, aes(Axis.1, Axis.2)) +
+  geom_point(aes(fill = Reef), shape = 21, size = 3, alpha = 0.8) +
+  ggalt::geom_encircle(aes(group = Reef, fill = Reef), s_shape=1, expand=0, alpha = 0.1) 
+```
+
+
+
+# ----------------------------------------------------------
+
+# Acropora results
+
+## Number of profiles total
+
+```{r}
+acro_data <- all_data %>%
+  filter(coral_genus == "Acropora")
+#number of type profiles for acropora 
+acro_data %>%
+  filter(str_detect(name, "p_")) %>%
+  group_by(name) %>%
+  count() %>%
+  arrange(desc(n)) 
+
+##  n total = 270. Because 262 samples but there are a few coral samples with 2+ type profiles 
+```
+#Unifrac distances between profiles ? (Hume 2020; Fig6)
+#Are rare sequences important to teh story? 
+
+## Profile descriptions
+Most abundant profile 
+What are the characteristics of the profiles? Majority sequence? Other DIVs?
+What are the characteristics of the uncommon profiles?
+Are there any indicators of distinct sequences / diagnostic of potential study relevant factors
+```{r}
+
+```
+
+
+## What factors explain between sample differences in sequence comp?
+
+Uni-frac - create distance matrices
+Permanova - study factors partition variance
+Betadisper - assumpt homogentiy var
+
+
+# idea to plot the clustering, and colour by a factor
+
+```{r}
+library(reshape2)
+k <- kmeans(dist, centers = 3)
+
+kdf <- enframe(k$cluster) %>%
+  select(name, k = value)
+
+du_k <- reshape2::melt(du) %>%
+        select(from = Var1, to = Var2, value) %>% 
+          left_join(., kdf, by = c("from" = "name")) %>%
+            left_join(., kdf, by = c("to" = "name"))
+
+du_1 <- du_k %>%
+  filter(k.x == 2 & k.y == 2) %>%
+  acast(from ~ to)
+
+adonis_meta <- full_meta %>%
+  select(plate_position, Reef, Site, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure) %>%
+  filter(plate_position %in% rownames(du_1)) %>%
+  tibble::column_to_rownames(var = "plate_position") %>%
+  mutate(depth_cat = round(Depth))
+
+adonis(du_1 ~ Reef + Morphotype + Depth , data = adonis_meta)
+
+pcoares <- pcoa(du_1)
+
+pcoa_df <- as.data.frame(pcoares$vectors) %>%
+  rownames_to_column(var = "plate_position") %>%
+  left_join(., adonis_meta %>% rownames_to_column(var = "plate_position"))
+
+ggplot(pcoa_df, aes(Axis.1, Axis.2)) +
+  geom_point(aes(fill = -Depth), shape = 21, size = 3, alpha = 0.8) +
+  #ggalt::geom_encircle(aes(group = Reef, colour = Reef), s_shape=1, expand=0) + 
+  scale_fill_viridis_c()
+```
+

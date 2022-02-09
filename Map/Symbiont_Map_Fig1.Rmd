@@ -1,0 +1,132 @@
+---
+title: "Symbiont Map"
+author: "Magena Marzonie"
+date: "08/02/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#install.packages("remotes")
+#remotes::install_github("https://github.com/open-AIMS/gisaimsr")
+library(tidyverse)
+library(ggspatial)
+library(sf)
+library(dataaimsr)
+library(gisaimsr)
+library(ggrepel)
+library(raster)
+library(ggrepel)
+library(rgeos)
+#for the inset
+library(rnaturalearth)
+library(rnaturalearthdata)
+```
+
+
+```{r}
+#Convert shapefiles to Simple Features using 'sf'
+CS_feat <- st_read("../3dgbr_geomorph/shape/qld_gbrwha_cscz.shp")
+CS_dryreef <- st_read("../3dgbr_geomorph/shape/coralsea_dryreef.shp")
+CS_reef <- st_read ("../3dgbr_geomorph/shape/coralsea_reef.shp")
+
+rm(gbr_feat)
+QLD = gbr_feat %>%
+  dplyr::filter(FEAT_NAME == "Mainland")
+
+
+gbr_feat = gbr_feat %>%
+  dplyr::filter(FEAT_NAME != "Mainland")
+
+#Create base map
+
+base_map = ggplot() +
+  geom_sf(data = QLD, lwd = 0.5, col = "grey60", fill = "grey60") +
+  geom_sf(data = gbr_bounds, lwd = 0.2, col = "#4e79a7", fill = "transparent", lty = "dashed") +
+  geom_sf(data = CS_feat, lwd = 0.2, col = "#4e79a7", fill = "transparent", lty = "dashed") +
+  geom_sf(data = gbr_feat, lwd = 0.1, col = "grey30", fill = "transparent") +
+  geom_sf(data = CS_dryreef, lwd = 0.2, col = "grey30", fill = "transparent") +
+  geom_sf(data = CS_reef, lwd = 0.2, col = "grey30", fill = "transparent") +
+  coord_sf(xlim = c(142, 158.5), ylim = c(-25, -10)) +
+  labs(x = "Longitude", y = "Latitude") +
+  scale_y_continuous(breaks = seq(-10, -25, by = -5)) +
+  scale_x_continuous(breaks = seq(140, 160, by = 5)) +
+  theme_classic() +
+  theme(panel.border = element_rect(fill = "transparent"),
+        axis.line = element_blank()) +
+  annotation_scale(location = "bl", 
+                   width_hint = 0.25,
+                   line_width = 1,
+                   line_col = "grey30",
+                   bar_cols = c("white", "grey30"),
+                   style = "bar",
+                   pad_x = unit(.65, "in"), 
+                   pad_y = unit(0.05, "in")) +
+  annotation_north_arrow(location = "bl", 
+                         which_north = "true",
+                         pad_x = unit(0.85, "in"), 
+                         pad_y = unit(0.18, "in"),
+                         style = north_arrow_orienteering(text_size = 6,
+                                                          fill = c("grey30", "white"),
+                                                          line_col = "grey30"), 
+                         height = unit(0.3, "in"), 
+                         width = unit(0.2, "in"))
+
+
+oz <- ne_countries(country = "Australia", scale='medium',returnclass = 'sf')
+
+
+
+inset = ggplot() +
+  geom_sf(data = oz, fill = "grey30", col = "transparent") +
+  geom_sf(data = gbr_bounds, lwd = 0.1, col = "grey30", fill = "transparent") +
+  geom_sf(data = QLD, lwd = 0.01, col = "grey30", fill = "grey30") +
+  geom_sf(data = CS_feat, lwd = 0.1, col = "grey30", fill = "transparent") +
+  theme_void() +
+  theme(legend.position = "none") 
+
+
+
+annotated_map = base_map + 
+  annotation_custom(ggplotGrob(inset), xmin = 141.5, xmax = 145.5, ymin = -27, ymax = -22)
+annotated_map
+```
+
+
+```{r}
+#Make a spreadsheet for each reef, add coordinates, add number of samples per coral species
+#Input spreadsheet 
+full_meta %>% 
+  group_by(Reef, Species, `GPS south`, `GPS east`) %>% 
+  summarise(n = n()) %>% 
+  spread(key = Species, value = n) 
+
+#now going to make an excel file with the lat, long and re-inport with lat/long per reef 
+```
+
+```{r}
+symbiont.coords = read.csv("Symbiont.coords.csv")
+```
+
+
+
+```{r}
+CSMP_Symbiont = annotated_map +
+  geom_point(data = symbiont.coords, aes(y = "-GPS.south", x = "GPS.east")) +
+  geom_label_repel(data = symbiont.coords, aes(x = "GPS.east", y = "-GPS.south", label = Reef), fontface= "bold", 
+                     size = 2.5, min.segment.length = 0, box.padding = 0.4, label.padding = 0.2, point.padding = 0.2, max.overlaps = 200)
+ggsave("../fig/CSMP_Map_allReefs.pdf", CSMP_Symbiont, dpi =300, width=10, height=6)
+
+CSMP_Symbiont
+```
+
+
+
+Add pie chart species sampled
+https://stackoverflow.com/questions/10368180/plotting-pie-graphs-on-map-in-ggplot
+```{r}
+
+```

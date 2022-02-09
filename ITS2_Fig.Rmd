@@ -1,0 +1,324 @@
+---
+title: "ITS2 analysis P. verrucosa"
+author: "Magena Marzonie / Matt Nitschke"
+date: "04/10/2021"
+output: html_document
+---
+
+
+Load libraries 
+```{r}
+library(tidyverse)
+library(kmer)
+library(phangorn)
+library(GUniFrac)
+library(ggtree)
+library(patchwork)
+library(bioseq)
+library(ape)
+library(Biostrings)
+```
+
+# Custom functions
+
+```{r}
+dna_to_DNAbin <- function (dna){
+  DNAbin <- as_DNAbin(dna)
+  names(DNAbin) <- names(dna)
+  return(DNAbin)
+}
+
+read_fasta_df <- function (file = "") {
+  fasta <- readLines(file)
+  ind <- grep(">", fasta)
+  s <- data.frame(ind = ind, from = ind + 1, to = c((ind - 
+    1)[-1], length(fasta)))
+  seqs <- rep(NA, length(ind))
+  for (i in 1:length(ind)) {
+    seqs[i] <- paste(fasta[s$from[i]:s$to[i]], collapse = "")
+  }
+  tib <- tibble(label = gsub(">", "", fasta[ind]), sequence = seqs)
+  return(tib)
+}
+```
+
+# Sequence and Profile tables
+```{r}
+# Import sequence table
+seqs <- read_tsv("20211115_marzonie/post_med_seqs/186_20211115_03_DBV_20211116T024440.seqs.absolute.abund_and_meta.txt") %>%
+    mutate(sample_name = as.factor(sample_name))
+
+meta <- seqs %>% select(sample_name) %>%
+  mutate(plate = case_when(str_detect(sample_name, "Plate1") ~ "Plate1",
+                           str_detect(sample_name, "Plate2") ~ "Plate2",
+                           str_detect(sample_name, "Plate3") ~ "Plate3",
+                           str_detect(sample_name, "Plate4") ~ "Plate4", 
+                           str_detect(sample_name, "Plate5") ~ "Plate5",
+                           str_detect(sample_name, "Plate4") ~ "Plate4",
+                           TRUE ~ "Other"),
+         position = str_sub(sample_name, start = 8, end = 11),
+         plate_position = paste0(plate, "_", position)) %>%
+  filter(!(is.na(sample_name)))
+
+# Convert to long format
+seqs_long <- seqs %>%
+  filter(!is.na(sample_name)) %>%
+  select(sample_name, `1180419_A`:`1275234_G`) %>%
+  pivot_longer(`1180419_A`:`1275234_G`) %>%
+  filter(value > 0) %>% # Remove zero values
+  left_join(., meta)
+
+# Q. Are we working with the post-med seqs according to the metadata in seqs?
+san_check <- seqs_long %>%
+  group_by(sample_name) %>%
+  summarise(total = sum(value)) #A. yes
+
+# Create a list of samples to keep that didnt fail to sequence
+keepers_ss <- san_check %>%
+  filter(total > 1500)
+
+# Filter out the failed samples
+seqs_long <- seqs_long %>%
+  filter(sample_name %in% keepers_ss$sample_name) %>%
+  group_by(sample_name) %>%
+  mutate(value_rel = value/sum(value)) %>% # Convert to relative abundance
+  ungroup() %>%
+  mutate(name = as.factor(name)) # Make sample names a factor (NOTE - DONT USE NUMBERS AS SAMPLE NAMES)
+
+# Create a random palette for each sequence
+n <- length(levels(seqs_long$name))
+seqs_pal = rainbow(n, s=.6, v=.9)[sample(1:n,n, replace = FALSE)]
+names(seqs_pal) <- levels(seqs_long$name)
+
+# Read in the profile data
+profiles_raw <- read_tsv("20211115_marzonie/its2_type_profiles/186_20211115_03_DBV_20211116T024440.profiles.absolute.abund_and_meta.txt", skip = 6) %>%
+    select(sample_name = `...2`, `A1/A1h`:`C42a/C1-C42.2`) %>%
+    filter(!is.na(sample_name))
+
+proflies_long <- profiles_raw %>%
+  pivot_longer(`A1/A1h`:`C42a/C1-C42.2`) %>% # Convert it to long format
+  mutate(name = paste0("p_", name)) %>% # Add a p_ to the beginning of each profile (Some profiles are single sequence profiles and clash with the Sequence names)
+  filter(sample_name %in% seqs_long$sample_name) %>% # Remove samples that done appear in the Sequence dataframe
+  group_by(sample_name) %>%
+  mutate(value = as.numeric(value)) %>%
+  filter(value > 0) %>% # Remove 0 abundance profiles
+  mutate(sample_name = as.factor(sample_name),
+         name = as.factor(name)) %>% # DONT USE NUMBERS FOR SAMPLE NAMES
+  ungroup() %>%
+  left_join(., meta) # Add in metadata
+
+# What is the total number of profile-related sequences in each sample?
+profiles_sum <- proflies_long %>%
+  group_by(sample_name) %>%
+  summarise(total = sum(value))
+
+# How many sequences in each sample are not part of a profile?
+residual <- left_join(profiles_sum, san_check, by = "sample_name") %>%
+  mutate(residual = total.y - total.x) %>%
+  select(sample_name, value = residual) %>%
+  mutate(name = "non-profile sequences") %>%
+  left_join(., meta)
+
+# Combine the profiles and non-profile sequences
+profile_data <- rbind(proflies_long, residual) %>%
+  group_by(sample_name) %>%
+  mutate(value_rel = value/sum(value)) # convert to relative abundance
+
+# Create palette for profiles (this is a darker palette)
+n <- length(levels(profile_data$name))
+profile_pal = rainbow(n, s=.6, v=.6)[sample(1:n,n, replace = FALSE)]
+names(profile_pal) <- levels(profile_data$name)
+
+# Merge the palettes and replace the non-profile sequences with grey
+all_pal <- c(seqs_pal, profile_pal)
+all_pal['non-profile sequences'] <- "#808080" 
+
+# Join profiles and sequence data together into single dataframe
+all_data <- rbind(seqs_long, profile_data)
+
+# Bit of manual hard-coding of the order of samples based on their profiles
+# sample_order <- all_data %>%
+#   group_by(sample_name) %>%
+#   slice_max(value_rel, with_ties = FALSE) %>%
+#   arrange(name)
+
+sample_order <- profiles_raw %>%
+  select(sample_name) %>%
+  left_join(., meta)
+```
+
+# Unifrac distances
+```{r}
+fasta <- read_fasta_df("20211115_marzonie/post_med_seqs/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
+  filter(label %in% seqs_long$name) %>%
+  filter(!str_detect(label, "A|G")) %>%
+  deframe() %>%
+  as_dna()
+
+kdist <- fasta %>%
+  dna_to_DNAbin() %>%
+  kdistance(k = 5, residues = "DNA", method = "edgar") %>%
+  as.matrix()
+
+tree <- kdist %>% phangorn::upgma()
+
+seqs_wide <- seqs_long %>%
+  select(plate_position, name, value) %>%
+  filter(!str_detect(name, "A|G")) %>%
+  pivot_wider(names_from = name, values_from = value) %>%
+  mutate(across(everything(), replace_na, 0)) %>%
+  tibble::column_to_rownames(var = "plate_position")
+
+unidist <- GUniFrac(seqs_wide, tree)
+unifracs <- unidist$unifracs
+du <- unifracs[, , "d_0.5"]
+
+hclust_samps <- upgma(du)
+
+ggtree_samps <- ggtree::ggtree(hclust_samps)$data %>%
+  filter(isTip == "TRUE") %>%
+  arrange(y)
+
+p_tree <- ggtree(hclust_samps, size = 0.2) +
+  scale_x_reverse() +
+  theme(aspect.ratio = 1)
+```
+
+# Plot
+
+```{r}
+plot_df <- all_data %>%
+  mutate(plate_position = fct_relevel(plate_position, sample_order$plate_position))
+breaks <- colnames(profiles_raw %>% select(-sample_name))
+
+ggplot(plot_df, aes(value_rel, plate_position)) +
+geom_bar(stat = "identity", aes(fill = name, colour = name)) +
+#facet_wrap(~coral_species, nrow = 1, scales = "free_x") +
+theme(aspect.ratio = 0.5, legend.position = "none", axis.text.y=element_blank(), axis.ticks.y = element_blank(),
+      axis.text.x=element_blank(), axis.ticks.x = element_blank()) +
+scale_fill_manual(values = all_pal, breaks = colnames(profiles_raw %>% select(-sample_name))) +
+scale_colour_manual(values = all_pal, breaks = colnames(profiles_raw %>% select(-sample_name))) +
+geom_vline(xintercept = 1, size = 1) +
+#guides(fill=guide_legend(ncol=3)) +
+ylab("Sample") +
+xlab("ITS2 Profile (left) and Sequence (right) relative abundance")
+
+# Plot IDEA ORDER SAMPLES BY UNIFRAC DISTANCES
+
+plot_df <- all_data %>%
+  mutate(plate_position = fct_relevel(plate_position, ggtree_samps$label))
+
+theme_set(theme_bw())
+
+p_bar_uni <- 
+ggplot(plot_df, aes(value_rel, plate_position)) +
+geom_bar(stat = "identity", aes(fill = name, colour = name)) +
+#facet_wrap(~coral_species, nrow = 1, scales = "free_x") +
+theme(aspect.ratio = 0.5, legend.position = "bottom", axis.text.y=element_blank(), axis.ticks.y = element_blank(),
+      axis.text.x=element_blank(), axis.ticks.x = element_blank(),
+      axis.title.x = element_blank(), axis.title.y = element_blank(),
+      panel.border = element_blank(), panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(), axis.ticks = element_blank()) +
+scale_fill_manual(values = all_pal, breaks = levels(profile_data$name)) +
+scale_colour_manual(values = all_pal, breaks = levels(profile_data$name)) +
+geom_vline(xintercept = 1, size = 1) +
+guides(fill=guide_legend(ncol=3))
+
+ggsave("fig/ITS2pver.png", p_bar_uni, dpi =300, width=10, height=6)
+
+```
+
+```{r}
+ITS2pver_tree <- p_bar_uni + p_tree 
+
+ggsave("fig/ITS2pverTree.png", p_bar_uni, dpi =300, width=10, height=6)
+```
+
+
+```{r}
+#read in metadata for environmental variables 
+metadata = read.csv("Data/Symbiont_Metadata.csv")
+```
+
+
+```{r}
+#fixing metadata sample names so it lines up with du. adonis matrix must have matching sample names for all 
+dist <- as.dist(du) 
+
+adonis_meta <- metadata %>% 
+  mutate(plate_position = str_sub(Sample.ID, start=1, end=11)) %>% 
+  mutate(plate_position = str_replace(plate_position, "-", "_")) %>% 
+filter(plate_position %in% row.names(du)) %>% 
+  tibble:: column_to_rownames (var = 'plate_position')
+```
+
+
+# PERMANOVA on weighted unifrac distances 
+```{r}
+#Reef
+reefAdonis <- adonis(du ~ Reef, data = adonis_meta)
+reefAdonis
+
+#Bleaching 
+catBleachAdonis <- adonis(du ~ catBleaching, data = adonis_meta)
+catBleachAdonis
+
+#Depth
+depthAdonis <- adonis(du ~ Depth, data = adonis_meta)
+depthAdonis
+
+#Site
+siteAdonis <- adonis(du ~ Site, data = adonis_meta)
+siteAdonis
+
+#Morphotype
+morphAdonis <- adonis(du ~ Morphotype, data = adonis_meta)
+morphAdonis
+
+#DHW
+DHWAdonis <- adonis(du ~ DHW, data = adonis_meta)
+DHWAdonis
+
+#Exposure
+ExposureAdonis <- adonis(du ~ Exposure, data = adonis_meta)
+ExposureAdonis
+
+#Aspect
+AspectAdonis <- adonis(du ~ Aspect, data = adonis_meta)
+AspectAdonis
+
+#Species
+SpeciesAdonis <- adonis(du ~ Species, data = adonis_meta)
+SpeciesAdonis
+```
+
+
+```{r}
+data(du, adonis_meta)
+library(MASS)
+ord <- metaMDS(adonis_meta)
+(fit <- envfit(ord, du, perm = 999))
+scores(fit, "vectors")
+plot(ord)
+plot(fit)
+plot(fit, p.max = 0.05, col = "red")
+```
+
+
+#Betadisper test for homogeneity of variance. 
+```{r}
+betaReef <- betadisper(as.dist(du), adonis_meta$Reef)
+anova(betaReef)
+
+plot(betaReef)
+```
+
+
+```{r}
+betaSpecies<- betadisper(as.dist(du), adonis_meta$Species)
+anova(betaSpecies)
+
+plot(betaSpecies)   
+```
+
+
