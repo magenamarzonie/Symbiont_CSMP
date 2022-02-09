@@ -24,19 +24,19 @@ library(ggsci)
 poci_seqs <- seqs_long %>% filter(str_detect(Species, "P|k"))
 
 #read in file 
-fasta <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
+fasta_p <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
   filter(label %in% poci_seqs$name) %>%   #only keeping DNA seqs that appear in seqs_long subset 
   filter(!str_detect(label, "A|G")) %>%
   deframe() %>%
   as_dna()
 
 
-kdist <- fasta %>%
+kdist_p <- fasta_p %>%
   dna_to_DNAbin() %>%
   kdistance(k = 5, residues = "DNA", method = "edgar") %>%
   as.matrix()
 
-tree <- kdist %>% phangorn::upgma()
+tree_p <- kdist_p %>% phangorn::upgma()
 
 #wide to long format
 seqs_wide <- seqs_long %>%
@@ -49,7 +49,7 @@ seqs_wide <- seqs_long %>%
   tibble::column_to_rownames(var = "plate_position")
 
 #matrix with unifrac distances for each coral sample  
-unidist <- GUniFrac(seqs_wide, tree)   #GUniFrac calculates all the distances 
+unidist <- GUniFrac(seqs_wide, tree_p)   #GUniFrac calculates all the distances 
 unifracs <- unidist$unifracs
 du <- unifracs[, , "d_VAW"]  #can change Unifrac type. slices the typ 
 
@@ -66,7 +66,7 @@ p_tree <- ggtree(hclust_samps, size = 0.2) +
 p_tree$data <- left_join(p_tree$data, full_meta, by = c("label" = "plate_position"))
 
 
-p_tree_tip <- p_tree + geom_tippoint(aes(color=Reef), size=0.3, alpha=1) +
+p_tree_tip <- p_tree + geom_tippoint(aes(color=Species), size=0.3, alpha=1) +
   scale_color_d3(palette = "category20")
 
 p_tree_tip
