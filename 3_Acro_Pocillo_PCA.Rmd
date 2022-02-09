@@ -1,0 +1,106 @@
+---
+title: "3_Acro_Pocillo_PCA"
+author: "Magena Marzonie"
+date: "09/02/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load libraries 
+```{r}
+library(vegan)
+```
+
+
+## Permanova
+```{r}
+dist <- as.dist(du, diag = FALSE)
+
+dim(du)
+
+# Sanity check
+full_meta$plate_position %in% rownames(du)
+
+adonis_meta <- full_meta %>%
+  select(plate_position, Reef, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure) %>%
+  filter(plate_position %in% rownames(du)) %>%
+  tibble::column_to_rownames(var = "plate_position") %>%
+  mutate(depth_cat = round(Depth)) %>%
+  mutate(sample_name = rownames(.))
+
+res <- adonis(dist ~ Species, data = adonis_meta)
+
+test <- betadisper(as.dist(du), adonis_meta$Species)
+plot(test)
+anova(test)
+```
+-we know about species. After accounting for this.. what about latitude? 
+
+
+# Figure 3 - Sequence PCoA clustering 
+
+#Results for Pocillopora 
+```{r}
+# library(NbClust)
+# k <- NbClust(diss = dist, distance = NULL, min.nc = 3, max.nc = 12, method = "ward.D2", index = "silhouette")
+# kdf <- enframe(k$Best.partition) %>%
+#   select(name, k = value)
+pcoares <- pcoa(dist)
+            
+pcoa_df <- as.data.frame(pcoares$vectors) %>%
+  rownames_to_column(var = "plate_position") %>%
+  select(plate_position, Axis.1:Axis.5) %>% 
+  left_join(., adonis_meta %>% rownames_to_column(var = "plate_position"))
+
+ggplot(pcoa_df, aes(Axis.1, Axis.2)) +
+  geom_point(aes(fill = Reef), shape = 21, size = 3, alpha = 0.8) +
+  ggalt::geom_encircle(aes(group = Reef, fill = Reef), s_shape=1, expand=0, alpha = 0.1) 
+```
+
+
+
+# ----------------------------------------------------------
+
+
+
+# idea to plot the clustering, and colour by a factor
+
+```{r}
+library(reshape2)
+k <- kmeans(dist, centers = 3)
+
+kdf <- enframe(k$cluster) %>%
+  select(name, k = value)
+
+du_k <- reshape2::melt(du) %>%
+        select(from = Var1, to = Var2, value) %>% 
+          left_join(., kdf, by = c("from" = "name")) %>%
+            left_join(., kdf, by = c("to" = "name"))
+
+du_1 <- du_k %>%
+  filter(k.x == 2 & k.y == 2) %>%
+  acast(from ~ to)
+
+adonis_meta <- full_meta %>%
+  select(plate_position, Reef, Site, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure) %>%
+  filter(plate_position %in% rownames(du_1)) %>%
+  tibble::column_to_rownames(var = "plate_position") %>%
+  mutate(depth_cat = round(Depth))
+
+adonis(du_1 ~ Reef + Morphotype + Depth , data = adonis_meta)
+
+pcoares <- pcoa(du_1)
+
+pcoa_df <- as.data.frame(pcoares$vectors) %>%
+  rownames_to_column(var = "plate_position") %>%
+  left_join(., adonis_meta %>% rownames_to_column(var = "plate_position"))
+
+ggplot(pcoa_df, aes(Axis.1, Axis.2)) +
+  geom_point(aes(fill = -Depth), shape = 21, size = 3, alpha = 0.8) +
+  #ggalt::geom_encircle(aes(group = Reef, colour = Reef), s_shape=1, expand=0) + 
+  scale_fill_viridis_c()
+```
+
