@@ -355,3 +355,11 @@ Are there any indicators of distinct sequences / diagnostic of potential study r
 Uni-frac - create distance matrices 
 Permanova - study factors partition variance
 Betadisper - assumpt homogentiy var
+
+
+Saving files that are needed for script 2_Acro_Pocillo_UPGMA
+```{r}
+#dir.create("Data")
+save(seqs_long, file = "Data/seqs_long.Rdata")
+```
+

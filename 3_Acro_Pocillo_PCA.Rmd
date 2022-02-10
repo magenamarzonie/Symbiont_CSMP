@@ -15,8 +15,9 @@ library(vegan)
 ```
 
 
-## Permanova
+## 3.1 Permanova Pocillopora 
 ```{r}
+#importing unifrac distances for analysis 
 dist <- as.dist(du, diag = FALSE)
 
 dim(du)
@@ -40,14 +41,8 @@ anova(test)
 -we know about species. After accounting for this.. what about latitude? 
 
 
-# Figure 3 - Sequence PCoA clustering 
-
-#Results for Pocillopora 
+## 3.2 PCoA plot for Pocillopora 
 ```{r}
-# library(NbClust)
-# k <- NbClust(diss = dist, distance = NULL, min.nc = 3, max.nc = 12, method = "ward.D2", index = "silhouette")
-# kdf <- enframe(k$Best.partition) %>%
-#   select(name, k = value)
 pcoares <- pcoa(dist)
             
 pcoa_df <- as.data.frame(pcoares$vectors) %>%

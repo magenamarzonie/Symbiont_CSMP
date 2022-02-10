@@ -12,33 +12,63 @@ knitr::opts_chunk$set(echo = TRUE)
 #Load libraries 
 ```{r}
 library(ggsci)
+library(tidyverse)
+library(kmer)
+library(phangorn)
+library(GUniFrac)
+library(ggtree)
+library(patchwork)
+library(bioseq)
+library(ape)
+library(Biostrings)
+```
+
+Custom functions
+```{r}
+dna_to_DNAbin <- function (dna){
+  DNAbin <- as_DNAbin(dna)
+  names(DNAbin) <- names(dna)
+  return(DNAbin)
+}
+
+read_fasta_df <- function (file = "") {
+  fasta <- readLines(file)
+  ind <- grep(">", fasta)
+  s <- data.frame(ind = ind, from = ind + 1, to = c((ind - 
+    1)[-1], length(fasta)))
+  seqs <- rep(NA, length(ind))
+  for (i in 1:length(ind)) {
+    seqs[i] <- paste(fasta[s$from[i]:s$to[i]], collapse = "")
+  }
+  tib <- tibble(label = gsub(">", "", fasta[ind]), sequence = seqs)
+  return(tib)
+}
 ```
 
 
-#basically ned to go through and save each output as an rds per species and then you save those rds. 
-#Then read them in in the next file 
-
 # Fig 2A Pocillopora Phylogenetic Tree
 ```{r}
+#load sequence data from 1_ script 
+load("Data/seqs_long.Rdata")
+
 #keeping A.cf. humilis data - filtering out Poci and unknown samples 
 poci_seqs <- seqs_long %>% filter(str_detect(Species, "P|k"))
 
 #read in file 
-fasta_p <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
+fasta_poci <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
   filter(label %in% poci_seqs$name) %>%   #only keeping DNA seqs that appear in seqs_long subset 
   filter(!str_detect(label, "A|G")) %>%
   deframe() %>%
   as_dna()
 
 
-kdist_p <- fasta_p %>%
+kdist_poci <- fasta_poci %>%
   dna_to_DNAbin() %>%
   kdistance(k = 5, residues = "DNA", method = "edgar") %>%
   as.matrix()
 
-tree_p <- kdist_p %>% phangorn::upgma()
+tree_poci <- kdist_poci %>% phangorn::upgma()
 
-#wide to long format
 seqs_wide <- seqs_long %>%
   dplyr::select(plate_position, name, value) %>%
   filter(!str_detect(name, "A|G")) %>%
@@ -49,37 +79,37 @@ seqs_wide <- seqs_long %>%
   tibble::column_to_rownames(var = "plate_position")
 
 #matrix with unifrac distances for each coral sample  
-unidist <- GUniFrac(seqs_wide, tree_p)   #GUniFrac calculates all the distances 
-unifracs <- unidist$unifracs
-du <- unifracs[, , "d_VAW"]  #can change Unifrac type. slices the typ 
+unidist_poci <- GUniFrac(seqs_wide, tree_poci)   #GUniFrac calculates all the distances 
+unifracs_poci <- unidist_poci$unifracs_poci
+du_poci <- unifracs_poci[, , "d_VAW"]  #can change Unifrac type. slices the typ 
 
-hclust_samps <- upgma(du)
+hclust_samps_poci <- upgma(du_poci)
 
-ggtree_samps <- ggtree::ggtree(hclust_samps)$data %>%
+ggtree_samps_poci <- ggtree::ggtree(hclust_samps_poci)$data %>%
   filter(isTip == "TRUE") %>%
   arrange(y)
 
-p_tree <- ggtree(hclust_samps, size = 0.2) +
+tree_poci <- ggtree(hclust_samps_poci, size = 0.2) +
   scale_x_reverse() +
   theme(aspect.ratio = 1.8)
 
-p_tree$data <- left_join(p_tree$data, full_meta, by = c("label" = "plate_position"))
+tree_poci$data <- left_join(tree_poci$data, full_meta, by = c("label" = "plate_position"))
 
 
-p_tree_tip <- p_tree + geom_tippoint(aes(color=Species), size=0.3, alpha=1) +
+tree_tip_poci <- tree_poci + geom_tippoint(aes(color=Species), size=0.3, alpha=1) +
   scale_color_d3(palette = "category20")
 
-p_tree_tip
+tree_tip_poci
 
-plot_df <- all_data %>%
+plot_df_poci <- all_data %>%
   filter(str_detect(Species, "P|k")) %>%
   mutate(plate_position = fct_relevel(plate_position, ggtree_samps$label))
 
 theme_set(theme_bw())
 
 
-p_bar_uni <- 
-ggplot(plot_df, aes(value_rel, plate_position)) +
+bar_uni_poci <- 
+ggplot(plot_df_poci, aes(value_rel, plate_position)) +
 geom_bar(stat = "identity", aes(fill = name, colour = name)) +
 theme(aspect.ratio = 0.5, legend.position = "none", axis.text.y=element_blank(), axis.ticks.y = element_blank(),
       axis.text.x=element_blank(), axis.ticks.x = element_blank(),
@@ -93,27 +123,28 @@ guides(fill=guide_legend(ncol=3))
 
 #p_bar_uni is the sequences by colour. P_tree_tip is the tree coloured by reef. 
 
-p_bar_uni + p_tree_tip
+bar_uni_poci + tree_tip_poci
 ```
 
 # Acropora tree 
 ```{r}
+#filtering seqs for acropora only 
 acro_seqs <- seqs_long %>% filter(str_detect(Species, "A"))
 
 #read in file 
-fasta_a <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
+fasta_acro <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
   filter(label %in% acro_seqs$name) %>%   #only keeping DNA seqs that appear in seqs_long subset 
   filter(!str_detect(label, "A|G")) %>%
   deframe() %>%
   as_dna()
 
-
-kdist_a <- fasta_a %>%
+#calculating kdistance for tree
+kdist_acro <- fasta_acro %>%
   dna_to_DNAbin() %>%
   kdistance(k = 5, residues = "DNA", method = "edgar") %>%
   as.matrix()
 
-tree_a <- kdist_a %>% phangorn::upgma()
+tree_acro <- kdist_acro %>% phangorn::upgma()
 
 #wide to long format
 seqs_wide <- seqs_long %>%
@@ -126,37 +157,37 @@ seqs_wide <- seqs_long %>%
   tibble::column_to_rownames(var = "plate_position")
 
 #matrix with unifrac distances for each coral sample  
-unidist <- GUniFrac(seqs_wide, tree)   #GUniFrac calculates all the distances 
-unifracs <- unidist$unifracs
-du <- unifracs[, , "d_VAW"]  #can change Unifrac type. slices the typ 
+unidist_acro <- GUniFrac(seqs_wide, tree_acro)   #GUniFrac calculates all the distances 
+unifracs_acro <- unidist_acro$unifracs_acro
+du_acro <- unifracs_acro[, , "d_VAW"]  #can change Unifrac type. slices the typ 
 
-hclust_samps <- upgma(du)
+hclust_samps_acro <- upgma(du_acro)
 
-ggtree_samps <- ggtree::ggtree(hclust_samps)$data %>%
+ggtree_samps <- ggtree::ggtree(hclust_samps_acro)$data %>%
   filter(isTip == "TRUE") %>%
   arrange(y)
 
-p_tree <- ggtree(hclust_samps, size = 0.2) +
+tree_acro <- ggtree(hclust_samps_acro, size = 0.2) +
   scale_x_reverse() +
   theme(aspect.ratio = 1.8)
 
-p_tree$data <- left_join(p_tree$data, full_meta, by = c("label" = "plate_position"))
+tree_acro$data <- left_join(tree_acro$data, full_meta, by = c("label" = "plate_position"))
 
 
-p_tree_tip <- p_tree + geom_tippoint(aes(color=Reef), size=0.3, alpha=1) +
+tree_tip_acro <- tree_acro + geom_tippoint(aes(color=Reef), size=0.3, alpha=1) +
   scale_color_d3(palette = "category20")
 
-p_tree_tip
+tree_tip_acro
 
-plot_df <- all_data %>%
+plot_df_acro <- all_data %>%
   filter(str_detect(Species, "Ahumilis")) %>%
   mutate(plate_position = fct_relevel(plate_position, ggtree_samps$label))
 
 theme_set(theme_bw())
 
-
-p_bar_uni <- 
-ggplot(plot_df, aes(value_rel, plate_position)) +
+#plotting the type profiles (left) and sequences per profile (right)
+bar_uni_acro <- 
+ggplot(plot_df_acro, aes(value_rel, plate_position)) +
 geom_bar(stat = "identity", aes(fill = name, colour = name)) +
 theme(aspect.ratio = 0.5, legend.position = "none", axis.text.y=element_blank(), axis.ticks.y = element_blank(),
       axis.text.x=element_blank(), axis.ticks.x = element_blank(),
@@ -170,6 +201,6 @@ guides(fill=guide_legend(ncol=3))
 
 #p_bar_uni is the sequences by colour. P_tree_tip is the tree coloured by reef. 
 
-p_bar_uni + p_tree_tip
+bar_uni_acro + tree_tip_acro
 ```
 
