@@ -289,6 +289,10 @@ poc_data %>%
 
 ```
 
+```{r}
+
+```
+
 
 ## Profile congruence with meandrina and acuta? 
 What are the characteristics of the mean/acuta profiles? Majority sequnce? Co-dominance? Other DIVs?
