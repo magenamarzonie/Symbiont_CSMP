@@ -45,11 +45,20 @@ read_fasta_df <- function (file = "") {
 }
 ```
 
-
-# Fig 2A Pocillopora Phylogenetic Tree
 ```{r}
 #load sequence data from 1_ script 
 load("Data/seqs_long.Rdata")
+load("Data/full_meta.Rdata")
+load("Data/all_data.Rdata")
+load("Data/all_pal.Rdata")
+load("Data/profile_data.Rdata")
+```
+
+
+
+# Fig 2A Pocillopora Phylogenetic Tree
+```{r}
+
 
 #keeping A.cf. humilis data - filtering out Poci and unknown samples 
 poci_seqs <- seqs_long %>% filter(str_detect(Species, "P|k"))
@@ -80,7 +89,7 @@ seqs_wide <- seqs_long %>%
 
 #matrix with unifrac distances for each coral sample  
 unidist_poci <- GUniFrac(seqs_wide, tree_poci)   #GUniFrac calculates all the distances 
-unifracs_poci <- unidist_poci$unifracs_poci
+unifracs_poci <- unidist_poci$unifracs
 du_poci <- unifracs_poci[, , "d_VAW"]  #can change Unifrac type. slices the typ 
 
 hclust_samps_poci <- upgma(du_poci)
@@ -103,7 +112,7 @@ tree_tip_poci
 
 plot_df_poci <- all_data %>%
   filter(str_detect(Species, "P|k")) %>%
-  mutate(plate_position = fct_relevel(plate_position, ggtree_samps$label))
+  mutate(plate_position = fct_relevel(plate_position, ggtree_samps_poci$label))
 
 theme_set(theme_bw())
 
@@ -158,7 +167,7 @@ seqs_wide <- seqs_long %>%
 
 #matrix with unifrac distances for each coral sample  
 unidist_acro <- GUniFrac(seqs_wide, tree_acro)   #GUniFrac calculates all the distances 
-unifracs_acro <- unidist_acro$unifracs_acro
+unifracs_acro <- unidist_acro$unifracs
 du_acro <- unifracs_acro[, , "d_VAW"]  #can change Unifrac type. slices the typ 
 
 hclust_samps_acro <- upgma(du_acro)

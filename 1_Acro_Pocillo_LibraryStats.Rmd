@@ -361,5 +361,9 @@ Saving files that are needed for script 2_Acro_Pocillo_UPGMA
 ```{r}
 #dir.create("Data")
 save(seqs_long, file = "Data/seqs_long.Rdata")
+save(full_meta, file = "Data/full_meta.Rdata")
+save(all_data, file = "Data/all_data.Rdata")
+save(all_pal, file = "Data/all_pal.Rdata")
+save(profile_data, file = "Data/profile_data.Rdata")
 ```
 
