@@ -58,10 +58,11 @@ load("Data/profile_data.Rdata")
 
 # Fig 2A Pocillopora Phylogenetic Tree
 ```{r}
-
-
 #keeping A.cf. humilis data - filtering out Poci and unknown samples 
 poci_seqs <- seqs_long %>% filter(str_detect(Species, "P|k"))
+
+poci_seqs %>% 
+    mutate(Reef=fct_relevel(Reef,c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
 #read in file 
 fasta_poci <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
@@ -105,7 +106,7 @@ tree_poci <- ggtree(hclust_samps_poci, size = 0.2) +
 tree_poci$data <- left_join(tree_poci$data, full_meta, by = c("label" = "plate_position"))
 
 
-tree_tip_poci <- tree_poci + geom_tippoint(aes(color=Species), size=0.3, alpha=1) +
+tree_tip_poci <- tree_poci + geom_tippoint(aes(color=Reef), size=0.3, alpha=1) +
   scale_color_d3(palette = "category20")
 
 tree_tip_poci
@@ -134,6 +135,8 @@ guides(fill=guide_legend(ncol=3))
 
 bar_uni_poci + tree_tip_poci
 ```
+
+
 
 # Acropora tree 
 ```{r}
