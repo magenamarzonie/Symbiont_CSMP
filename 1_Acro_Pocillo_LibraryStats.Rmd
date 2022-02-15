@@ -349,9 +349,6 @@ Most abundant profile
 What are the characteristics of the profiles? Majority sequence? Other DIVs?
 What are the characteristics of the uncommon profiles?
 Are there any indicators of distinct sequences / diagnostic of potential study relevant factors
-```{r}
-
-```
 
 
 ## What factors explain between sample differences in sequence comp?
