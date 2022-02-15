@@ -22,6 +22,9 @@ load("Data/SiteDisturbanceHistory_DHW.RData")
 #load seq data from 2_UPGMA
 load("Data/du_acro.RData")
 load("Data/du_poci.RData")
+load("Data/du_pver.Rdata")
+load("Data/du_pmea.Rdata")
+load("Data/du_punk.Rdata")
 load("Data/full_meta.RData")
 ```
 
@@ -32,7 +35,7 @@ full_meta2 = full_meta %>% left_join(site.bleachings, by = "Site")
 
 
 
-## 3.1a Permanova Pocillopora Verrucosa 
+## 3.1a Permanova Pocillopora all species 
 ```{r}
 #importing unifrac distances for analysis 
 dist_poci <- as.dist(du_poci, diag = FALSE)
@@ -40,21 +43,23 @@ dist_poci <- as.dist(du_poci, diag = FALSE)
 dim(du_poci)
 
 # Sanity check
-full_meta$plate_position %in% rownames(du_poci)
+full_meta2$plate_position %in% rownames(du_poci)
 
-adonis_meta_poci <- full_meta %>%
-  dplyr::select(plate_position, Reef, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure) %>%
+adonis_meta_poci <- full_meta2 %>%
+  dplyr::select(plate_position, Reef.x, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4) %>%
   filter(plate_position %in% rownames(du_poci)) %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(depth_cat = round(Depth)) %>%
   mutate(sample_name = rownames(.))
 
-res <- adonis(dist_poci ~ Species, data = adonis_meta_poci)
+res <- adonis(dist_poci ~ DHW3, data = adonis_meta_poci)
 
-test_poci <- betadisper(as.dist(du_poci), adonis_meta_poci$Species)
+test_poci <- betadisper(as.dist(du_poci), adonis_meta_poci$DHW3)
 plot(test_poci)
 anova(test_poci)
 ```
+
+
 #Colour dots by species 
 #Are outliers meaningful - what's in those communities that makes them different 
 # separate into 2 poci species 
@@ -136,19 +141,19 @@ dist_acro <- as.dist(du_acro, diag = FALSE)
 dim(du_acro)
 
 # Sanity check
-full_meta$plate_position %in% rownames(du_acro)
+full_meta2$plate_position %in% rownames(du_acro)
 
-adonis_meta_acro <- full_meta %>%
-  select(plate_position, Reef, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure) %>%
+adonis_meta_acro <- full_meta2 %>%
+  select(plate_position, Reef.x, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3) %>%
   filter(plate_position %in% rownames(du_acro)) %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(depth_cat = round(Depth)) %>%
   mutate(sample_name = rownames(.))
 
-res_acro <- adonis(dist_acro ~ Reef, data = adonis_meta_acro)
+res_acro <- adonis(dist_acro ~ DHW3, data = adonis_meta_acro)
 
 
-test_acro <- betadisper(as.dist(du_acro), adonis_meta_acro$Reef)
+test_acro <- betadisper(as.dist(du_acro), adonis_meta_acro$DHW3)
 plot(test_acro)
 anova(test_acro)
 ```
@@ -164,8 +169,8 @@ pcoa_df_acro <- as.data.frame(pcoares_acro$vectors) %>%
   left_join(., adonis_meta_acro %>% rownames_to_column(var = "plate_position"))
 
 ggplot(pcoa_df_acro, aes(Axis.1, Axis.2)) +
-  geom_point(aes(fill = Reef), shape = 21, size = 3, alpha = 0.8) +
-  ggalt::geom_encircle(aes(group = Reef, fill = Reef), s_shape=1, expand=0, alpha = 0.1) 
+  geom_point(aes(fill = DHW3), shape = 21, size = 3, alpha = 0.8) +
+  ggalt::geom_encircle(aes(group = DHW3, fill = DHW3), s_shape=1, expand=0, alpha = 0.1) 
 ```
 
 
