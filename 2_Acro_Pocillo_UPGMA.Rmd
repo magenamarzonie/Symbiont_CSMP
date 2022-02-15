@@ -91,7 +91,7 @@ seqs_wide <- seqs_long %>%
 #matrix with unifrac distances for each coral sample  
 unidist_poci <- GUniFrac(seqs_wide, tree_poci)   #GUniFrac calculates all the distances 
 unifracs_poci <- unidist_poci$unifracs
-du_poci <- unifracs_poci[, , "d_VAW"]  #can change Unifrac type. slices the typ 
+du_poci <- unifracs_poci[, , "d_0.5"]  #can change Unifrac type.- go to GUniFrac in Help section   
 
 hclust_samps_poci <- upgma(du_poci)
 
@@ -171,7 +171,7 @@ seqs_wide <- seqs_long %>%
 #matrix with unifrac distances for each coral sample  
 unidist_acro <- GUniFrac(seqs_wide, tree_acro)   #GUniFrac calculates all the distances 
 unifracs_acro <- unidist_acro$unifracs
-du_acro <- unifracs_acro[, , "d_VAW"]  #can change Unifrac type. slices the typ 
+du_acro <- unifracs_acro[, , "d_0.5"]  #can change Unifrac type.- go to GUniFrac in Help section  
 
 hclust_samps_acro <- upgma(du_acro)
 
@@ -214,5 +214,11 @@ guides(fill=guide_legend(ncol=3))
 #p_bar_uni is the sequences by colour. P_tree_tip is the tree coloured by reef. 
 
 bar_uni_acro + tree_tip_acro
+```
+
+#Saving objects for script 3_PCA
+```{r}
+save(du_poci, file = "Data/du_poci.Rdata")
+save(du_acro, file = "Data/du_acro.Rdata")
 ```
 

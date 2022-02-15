@@ -12,6 +12,17 @@ knitr::opts_chunk$set(echo = TRUE)
 #Load libraries 
 ```{r}
 library(vegan)
+select = dplyr::select
+```
+
+```{r}
+#load environmental data 
+load("Data/SiteDisturbanceHistory_DHW.RData")
+
+#load seq data from 2_UPGMA
+load("Data/du_acro.RData")
+load("Data/du_poci.RData")
+load("Data/full_meta.RData")
 ```
 
 
@@ -26,7 +37,7 @@ dim(du_poci)
 full_meta$plate_position %in% rownames(du_poci)
 
 adonis_meta_poci <- full_meta %>%
-  select(plate_position, Reef, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure) %>%
+  dplyr::select(plate_position, Reef, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure) %>%
   filter(plate_position %in% rownames(du_poci)) %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(depth_cat = round(Depth)) %>%
@@ -38,8 +49,11 @@ test_poci <- betadisper(as.dist(du_poci), adonis_meta_poci$Reef)
 plot(test_poci)
 anova(test_poci)
 ```
--we know about species. After accounting for this.. what about latitude? 
-
+#Colour dots by species 
+#Are outliers meaningful - what's in those communities that makes them different 
+# separate into 2 poci species 
+# re-evaluate those enviro variables 
+# add in thermal history variables 
 
 ## 3.1b PCoA plot for Pocillopora 
 ```{r}
@@ -47,7 +61,7 @@ pcoares_poci <- pcoa(dist_poci)
             
 pcoa_df_poci <- as.data.frame(pcoares_poci$vectors) %>%
   rownames_to_column(var = "plate_position") %>%
-  select(plate_position, Axis.1:Axis.5) %>% 
+  dplyr::select(plate_position, Axis.1:Axis.5) %>% 
   left_join(., adonis_meta_poci %>% rownames_to_column(var = "plate_position"))
 
 ggplot(pcoa_df_poci, aes(Axis.1, Axis.2)) +
