@@ -27,12 +27,7 @@ load("Data/full_meta.RData")
 
 ```{r}
 #change site names so they will merge with full_meta 
- site.bleachings2 = site.bleachings %>% mutate(Site = str_extract(Site, ".\\d"),
-         Site = paste(abbreviate(Reef), Site, sep='_'),
-         Site = gsub(" ", "", Site),
-         Site = gsub("Dmnd_1", "Dmnd_East", Site))
-
-full_meta2 = full_meta %>% left_join(site.bleachings2, by = "Site")
+full_meta2 = full_meta %>% left_join(site.bleachings, by = "Site")
 ```
 
 
@@ -54,9 +49,9 @@ adonis_meta_poci <- full_meta %>%
   mutate(depth_cat = round(Depth)) %>%
   mutate(sample_name = rownames(.))
 
-res <- adonis(dist_poci ~ Reef, data = adonis_meta_poci)
+res <- adonis(dist_poci ~ Species, data = adonis_meta_poci)
 
-test_poci <- betadisper(as.dist(du_poci), adonis_meta_poci$Reef)
+test_poci <- betadisper(as.dist(du_poci), adonis_meta_poci$Species)
 plot(test_poci)
 anova(test_poci)
 ```
@@ -76,8 +71,8 @@ pcoa_df_poci <- as.data.frame(pcoares_poci$vectors) %>%
   left_join(., adonis_meta_poci %>% rownames_to_column(var = "plate_position"))
 
 ggplot(pcoa_df_poci, aes(Axis.1, Axis.2)) +
-  geom_point(aes(fill = Reef), shape = 21, size = 3, alpha = 0.8) +
-  ggalt::geom_encircle(aes(group = Reef, fill = Reef), s_shape=1, expand=0, alpha = 0.1) 
+  geom_point(aes(fill = Species), shape = 21, size = 3, alpha = 0.8) +
+  ggalt::geom_encircle(aes(group = Species, fill = Species), s_shape=1, expand=0, alpha = 0.1) 
 ```
 
 
@@ -151,10 +146,9 @@ adonis_meta_acro <- full_meta %>%
   mutate(sample_name = rownames(.))
 
 res_acro <- adonis(dist_acro ~ Reef, data = adonis_meta_acro)
-res_acro <- adonis(dist_acro ~ GPS_S, data = adonis_meta_acro)
 
 
-test_acro <- betadisper(as.dist(du_acro), adonis_meta_acro$GPS_S)
+test_acro <- betadisper(as.dist(du_acro), adonis_meta_acro$Reef)
 plot(test_acro)
 anova(test_acro)
 ```
