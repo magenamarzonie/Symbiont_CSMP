@@ -274,6 +274,7 @@ tree_tip_pmea <- tree_pmea + geom_tippoint(aes(color=-`GPS south`), size=2, alph
   scale_color_viridis_c(option = "magma")
 
 tree_tip_pmea
+ggsave("pmea_tree.png") #dpi =300, width=110, height=180, units = "mm")
 
 plot_df_pmea <- all_data %>%
   filter(str_detect(Species, "Pmeandrina")) %>%
@@ -297,7 +298,7 @@ guides(fill=guide_legend(ncol=3))
 
 #p_bar_uni is the sequences by colour. P_tree_tip is the tree coloured by reef. 
 
-bar_uni_pmea + tree_tip_pmea
+pmea_latitudetree <- bar_uni_pmea + tree_tip_pmea
 ```
 
 

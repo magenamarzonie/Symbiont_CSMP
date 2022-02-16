@@ -167,10 +167,10 @@ all_data %>%
   group_by(Species) %>%
   summarise(total_seqs = sum(value))
 
-#Ahumilis	13254490			
-#Pmeandrina	7025016			
-#Pverrucosa	8342780			
-#Unknown	3210430			
+#Ahumilis	8260349			
+#Pmeandrina	4138111			
+#Pverrucosa	4747231			
+#Unknown	1888000	
 ```
 
 ```{r}
