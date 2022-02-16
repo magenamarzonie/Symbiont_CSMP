@@ -74,7 +74,6 @@ pmea_seqs <- seqs_long %>% filter(str_detect(Species, "Pmeandrina"))
 punk_seqs <- seqs_long %>% filter(str_detect(Species, "Unknown"))
 ```
 
-
 # Fig 2A Pocillopora all species Phylogenetic Tree
 ```{r}
 #read in file 
@@ -195,8 +194,8 @@ tree_pver$data <- left_join(tree_pver$data, full_meta2, by = c("label" = "plate_
   mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
 
-tree_tip_pver <- tree_pver + geom_tippoint(aes(color=Reef.x), size=0.3, alpha=1) +
-  scale_color_d3(palette = "category20")
+tree_tip_pver <- tree_pver + geom_tippoint(aes(color=-`GPS south`), size=2, alpha=1) +
+  scale_color_viridis_c(option = "magma")
 
 tree_tip_pver
 
@@ -271,8 +270,8 @@ tree_pmea$data <- left_join(tree_pmea$data, full_meta2, by = c("label" = "plate_
     mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
 
-tree_tip_pmea <- tree_pmea + geom_tippoint(aes(color=Reef.x), size=0.3, alpha=1) +
-  scale_color_d3(palette = "category20")
+tree_tip_pmea <- tree_pmea + geom_tippoint(aes(color=-`GPS south`), size=2, alpha=1) +
+  scale_color_viridis_c(option = "magma")
 
 tree_tip_pmea
 
@@ -346,10 +345,8 @@ tree_punk <- ggtree(hclust_samps_punk, size = 0.2) +
 tree_punk$data <- left_join(tree_punk$data, full_meta2, by = c("label" = "plate_position")) %>% 
   mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
-
-
-tree_tip_punk <- tree_punk + geom_tippoint(aes(color=Reef.x), size=0.3, alpha=1) +
-  scale_color_d3(palette = "category20")
+tree_tip_punk <- tree_punk + geom_tippoint(aes(color=`DHW3`), size=2, alpha=1) +
+  scale_color_viridis_c(option = "magma")
 
 tree_tip_punk
 
@@ -427,8 +424,8 @@ tree_acro$data <- left_join(tree_acro$data, full_meta2, by = c("label" = "plate_
       mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
 
-tree_tip_acro <- tree_acro + geom_tippoint(aes(color=Reef.x), size=0.3, alpha=1) +
-  scale_color_d3(palette = "category20")
+tree_tip_acro <- tree_acro + geom_tippoint(aes(color=-`GPS east`), size=2, alpha=1) +
+  scale_color_viridis_c(option = "magma")
 
 tree_tip_acro
 

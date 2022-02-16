@@ -67,9 +67,9 @@ adonis_meta_poci <- full_meta2 %>%
   mutate(depth_cat = round(Depth)) %>%
   mutate(sample_name = rownames(.))
 
-res <- adonis(dist_poci ~ Species, data = adonis_meta_poci)
+res <- adonis(dist_poci ~ Reef.x, data = adonis_meta_poci)
 
-test_poci <- betadisper(as.dist(du_poci), adonis_meta_poci$Species)
+test_poci <- betadisper(as.dist(du_poci), adonis_meta_poci$Reef.x)
 plot(test_poci)
 anova(test_poci)
 ```
@@ -81,11 +81,15 @@ pcoares_poci <- pcoa(dist_poci)
 pcoa_df_poci <- as.data.frame(pcoares_poci$vectors) %>%
   rownames_to_column(var = "plate_position") %>%
   dplyr::select(plate_position, Axis.1:Axis.5) %>% 
-  left_join(., adonis_meta_poci %>% rownames_to_column(var = "plate_position"))
+  left_join(., adonis_meta_poci %>% rownames_to_column(var = "plate_position")) %>%
+  mutate(Reef.x = fct_relevel(Reef.x, c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
 ggplot(pcoa_df_poci, aes(Axis.1, Axis.2)) +
-  geom_point(aes(fill = Species), shape = 21, size = 3, alpha = 0.8) +
-  ggalt::geom_encircle(aes(group = Species, fill = Species), s_shape=1, expand=0, alpha = 0.1) 
+  geom_point(aes(shape = Species, fill = Species), size = 3, alpha = 0.8) +
+  facet_wrap(~Reef.x) +
+  ggalt::geom_encircle(aes(group = Reef.x, colour = Reef.x), s_shape=1, expand=0, alpha = 0.5) +
+  scale_shape_manual(values = c(21,22,23)) +
+  scale_color_d3(palette = "category20")
 
 #ggsave("fig/pcoa_df_poci.png", dpi =300, width=8, height=8, units = "cm")
 
@@ -165,10 +169,13 @@ pcoares_pver <- pcoa(dist_pver)
 pcoa_df_pver <- as.data.frame(pcoares_pver$vectors) %>%
   rownames_to_column(var = "plate_position") %>%
   dplyr::select(plate_position, Axis.1:Axis.5) %>% 
-  left_join(., adonis_meta_poci %>% rownames_to_column(var = "plate_position"))
+  left_join(., adonis_meta_poci %>% rownames_to_column(var = "plate_position")) %>%
+    mutate(Reef.x = fct_relevel(Reef.x, c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
+
 
 ggplot(pcoa_df_pver, aes(Axis.1, Axis.2)) +
   geom_point(aes(fill = Reef.x), shape = 21, size = 3, alpha = 0.8) +
+  facet_wrap(~Reef.x) +
   ggalt::geom_encircle(aes(group = Reef.x, fill = Reef.x), s_shape=1, expand=0, alpha = 0.1) 
 
 #ggsave("fig/pcoa_df_poci.png", dpi =300, width=8, height=8, units = "cm")
