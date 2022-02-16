@@ -263,10 +263,10 @@ poc_data %>%
 #41 total profiles in Pocillopora 
 ```
 - Are the DIVs special? 
--is PSba diversity congruent iwth profile diversity? 
+-is PSba diversity congruent with profile diversity? 
 
 ## Number of profiles total
-## Profile congruence with P. veruucosa ID (what are the exceptions)
+## Profile congruence with P. verrucosa ID (what are the exceptions)
 Most abundant profile
 What are the characteristics of the veru profiles? Majority sequence? Other DIVs?
 What are the characteristics of the uncommon profiles?
@@ -286,10 +286,6 @@ poc_data %>%
   group_by(name) %>%
   count() %>%
   arrange(desc(n)) 
-
-```
-
-```{r}
 
 ```
 
@@ -333,7 +329,7 @@ poc_data %>%
 acro_data <- all_data %>%
   filter(coral_genus == "Acropora")
 #number of type profiles for acropora 
-acro_data %>%
+acro_type = acro_data %>%
   filter(str_detect(name, "p_")) %>%
   group_by(name) %>%
   count() %>%
@@ -341,6 +337,15 @@ acro_data %>%
 
 ##  n total = 270. Because 262 samples but there are a few coral samples with 2+ type profiles 
 ```
+
+
+```{r}
+acro_type %>% mutate(name = as.factor(name)) 
+ggplot(acro_type, aes(x = name, y = n)) +
+  geom_histogram(stat = "identity") + 
+  theme(axis.text.x = element_text(angle = 90, hjust=1))
+```
+
 
 #Are rare sequences important to teh story? 
 

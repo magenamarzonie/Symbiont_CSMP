@@ -72,7 +72,6 @@ poci_seqs <- seqs_long %>% filter(str_detect(Species, "P|k"))
 pver_seqs <- seqs_long %>% filter(str_detect(Species, "Pverrucosa"))
 pmea_seqs <- seqs_long %>% filter(str_detect(Species, "Pmeandrina"))
 punk_seqs <- seqs_long %>% filter(str_detect(Species, "Unknown"))
-
 ```
 
 
@@ -117,10 +116,11 @@ tree_poci <- ggtree(hclust_samps_poci, size = 0.2) +
   scale_x_reverse() +
   theme(aspect.ratio = 1.8)
 
-tree_poci$data <- left_join(tree_poci$data, full_meta2, by = c("label" = "plate_position"))
+tree_poci$data <- left_join(tree_poci$data, full_meta2, by = c("label" = "plate_position")) %>% 
+      mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
-
-tree_tip_poci <- tree_poci + geom_tippoint(aes(color=Reef.x), size=0.3, alpha=1) +
+tree_tip_poci <- tree_poci  + 
+  geom_tippoint(aes(color=Reef.x), size=0.3, alpha=1) +
   scale_color_d3(palette = "category20")
 
 tree_tip_poci
@@ -191,7 +191,8 @@ tree_pver <- ggtree(hclust_samps_pver, size = 0.2) +
   scale_x_reverse() +
   theme(aspect.ratio = 1.8)
 
-tree_pver$data <- left_join(tree_pver$data, full_meta2, by = c("label" = "plate_position"))
+tree_pver$data <- left_join(tree_pver$data, full_meta2, by = c("label" = "plate_position")) %>% 
+  mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
 
 tree_tip_pver <- tree_pver + geom_tippoint(aes(color=Reef.x), size=0.3, alpha=1) +
@@ -266,7 +267,8 @@ tree_pmea <- ggtree(hclust_samps_pmea, size = 0.2) +
   scale_x_reverse() +
   theme(aspect.ratio = 1.8)
 
-tree_pmea$data <- left_join(tree_pmea$data, full_meta2, by = c("label" = "plate_position"))
+tree_pmea$data <- left_join(tree_pmea$data, full_meta2, by = c("label" = "plate_position")) %>% 
+    mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
 
 tree_tip_pmea <- tree_pmea + geom_tippoint(aes(color=Reef.x), size=0.3, alpha=1) +
@@ -341,7 +343,9 @@ tree_punk <- ggtree(hclust_samps_punk, size = 0.2) +
   scale_x_reverse() +
   theme(aspect.ratio = 1.8)
 
-tree_punk$data <- left_join(tree_punk$data, full_meta2, by = c("label" = "plate_position"))
+tree_punk$data <- left_join(tree_punk$data, full_meta2, by = c("label" = "plate_position")) %>% 
+  mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
+
 
 
 tree_tip_punk <- tree_punk + geom_tippoint(aes(color=Reef.x), size=0.3, alpha=1) +
@@ -419,7 +423,8 @@ tree_acro <- ggtree(hclust_samps_acro, size = 0.2) +
   scale_x_reverse() +
   theme(aspect.ratio = 1.8)
 
-tree_acro$data <- left_join(tree_acro$data, full_meta2, by = c("label" = "plate_position"))
+tree_acro$data <- left_join(tree_acro$data, full_meta2, by = c("label" = "plate_position")) %>% 
+      mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
 
 tree_tip_acro <- tree_acro + geom_tippoint(aes(color=Reef.x), size=0.3, alpha=1) +
@@ -453,12 +458,13 @@ bar_uni_acro + tree_tip_acro
 ```
 
 
-
-
-
 #Saving objects for script 3_PCA
 ```{r}
 save(du_poci, file = "Data/du_poci.Rdata")
 save(du_acro, file = "Data/du_acro.Rdata")
+save(du_pver, file = "Data/du_pver.Rdata")
+save(du_pmea, file = "Data/du_pmea.Rdata")
+save(du_punk, file = "Data/du_punk.Rdata")
+
 ```
 
