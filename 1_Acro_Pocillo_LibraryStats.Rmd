@@ -303,6 +303,27 @@ poc_data %>%
   arrange(desc(n)) 
 ```
 
+Type profiles in P meandrina 
+```{r}
+poc_data %>%
+  filter(Species == "Pmeandrina") %>% 
+  filter(str_detect(name, "p_")) %>%    #profiles start with p_
+  group_by(name, Species) %>%
+  count() %>%
+  arrange(desc(n)) 
+```
+
+
+Type profiles in P unkonwn 
+```{r}
+poc_data %>%
+  filter(Species == "Unknown") %>% 
+  filter(str_detect(name, "p_")) %>%    #profiles start with p_
+  group_by(name, Species) %>%
+  count() %>%
+  arrange(desc(n)) 
+```
+
 
 #Venn diagram to show profile overlap 
 ```{r}

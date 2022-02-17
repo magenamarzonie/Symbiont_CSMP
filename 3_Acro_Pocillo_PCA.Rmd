@@ -249,11 +249,16 @@ pcoares_acro <- pcoa(dist_acro)
 pcoa_df_acro <- as.data.frame(pcoares_acro$vectors) %>%
   rownames_to_column(var = "plate_position") %>%
   select(plate_position, Axis.1:Axis.5) %>% 
-  left_join(., adonis_meta_acro %>% rownames_to_column(var = "plate_position"))
+  left_join(., adonis_meta_acro %>% rownames_to_column(var = "plate_position")) %>% 
+    mutate(Reef.x = fct_relevel(Reef.x, c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
 ggplot(pcoa_df_acro, aes(Axis.1, Axis.2)) +
-  geom_point(aes(fill = DHW3), shape = 21, size = 3, alpha = 0.8) +
-  ggalt::geom_encircle(aes(group = Reef.x, fill = Reef.x), s_shape=1, expand=0, alpha = 0.1) 
+  geom_point(aes(fill = Reef.x), shape = 21, size = 3, alpha = 0.8) +
+  facet_wrap(~Reef.x) +
+  ggalt::geom_encircle(aes(group = Reef.x, fill = Reef.x), s_shape=1, expand=0, alpha = 0.1) +
+  theme_classic()
+
+ggsave("AcroPCA.png", height = 7, width = 12)
 ```
 
 
