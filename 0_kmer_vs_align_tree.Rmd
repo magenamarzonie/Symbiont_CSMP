@@ -1,0 +1,213 @@
+---
+title: "0_Kmer_vs_align_tree"
+author: "MNitschke"
+date: "17/02/2022"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(forcats)
+library(reshape2)
+library(stringr)
+library(tidyr)
+library(tibble)
+library(sangerseqR)
+library(DECIPHER)
+library(Biostrings)
+library(phangorn)
+library(ape)
+library(ggplot2)
+library(ggtree)
+library(patchwork)
+library(bioseq)
+library(kmer)
+library(GUniFrac)
+library(seqinr)
+# DNA palette
+palette <- c("A" = "#6bb04a", "G" = "#4e76dd", "C" = "#c89232", "T" = "#d14d4b", "N" = "black", "-" = "white")
+```
+
+```{r}
+read_fasta_df <- function (file = "") {
+  fasta <- readLines(file)
+  ind <- grep(">", fasta)
+  s <- data.frame(ind = ind, from = ind + 1, to = c((ind - 
+    1)[-1], length(fasta)))
+  seqs <- rep(NA, length(ind))
+  for (i in 1:length(ind)) {
+    seqs[i] <- paste(fasta[s$from[i]:s$to[i]], collapse = "")
+  }
+  tib <- tibble(label = gsub(">", "", fasta[ind]), sequence = seqs)
+  return(tib)
+}
+
+write_fasta_df <- function(data, filename){
+  fastaLines = c()
+  for (rowNum in 1:nrow(data)){
+    fastaLines = c(fastaLines, as.character(paste(">", data[rowNum,"names"], sep = "")))
+    fastaLines = c(fastaLines,as.character(data[rowNum,"seqs"]))
+  }
+  fileConn<-file(filename)
+  writeLines(fastaLines, fileConn)
+  close(fileConn)
+}
+
+dna_to_DNAbin <- function (dna){
+  DNAbin <- as_DNAbin(dna)
+  names(DNAbin) <- names(dna)
+  return(DNAbin)
+}
+
+dna_to_DNAStringset <- function(x) 
+{
+    bioseq:::check_dna(x)
+    DNAstr <- DNAStringSet(paste(x))
+    names(DNAstr) <- names(x)
+    return(DNAstr)
+}
+
+```
+
+```{r}
+#load sequence data from 1_ script 
+load("Data/seqs_long.Rdata")
+load("Data/full_meta.Rdata")
+load("Data/all_data.Rdata")
+load("Data/all_pal.Rdata")
+load("Data/profile_data.Rdata")
+```
+
+```{r}
+#load environmental data 
+load("Data/SiteDisturbanceHistory_DHW.RData")
+
+#add thermal history data to metadata 
+full_meta2 = full_meta %>% left_join(site.bleachings, by = "Site") 
+
+#relevel reef in order of latitude 
+full_meta2 %>% mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
+```
+
+#Three data frames for the Pocillopora species
+
+```{r}
+pmea_seqs <- seqs_long %>% filter(str_detect(Species, "Pmeandrina"))
+```
+
+# Generate a Kmer-based tree for meandrina
+
+Note: the higher the k value, the less entangled the two trees are
+
+```{r}
+#read in file 
+fasta_pmea <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
+  filter(label %in% pmea_seqs$name) %>%   #only keeping DNA seqs that appear in seqs_long subset 
+  filter(!str_detect(label, "A|G")) %>%
+  deframe() %>%
+  as_dna()
+
+kdist_pmea <- fasta_pmea %>%
+  dna_to_DNAbin() %>%
+  kdistance(k = 8, residues = "DNA", method = "edgar") %>%
+  as.matrix()
+
+tree_pmea <- kdist_pmea %>% phangorn::upgma()
+
+seqs_wide <- seqs_long %>%
+  dplyr::select(plate_position, name, value) %>%
+  filter(!str_detect(name, "A|G")) %>%
+  filter(name %in% pmea_seqs$name) %>%
+  pivot_wider(names_from = name, values_from = value) %>%
+  mutate(across(everything(), replace_na, 0)) %>%
+  filter(plate_position %in% pmea_seqs$plate_position) %>%
+  tibble::column_to_rownames(var = "plate_position")
+
+#matrix with unifrac distances for each coral sample  
+unidist_pmea <- GUniFrac(seqs_wide, tree_pmea)   #GUniFrac calculates all the distances 
+unifracs_pmea <- unidist_pmea$unifracs
+du_pmea<- unifracs_pmea[, , "d_0.5"]  #can change Unifrac type.- go to GUniFrac in Help section   
+
+hclust_samps_pmea <- upgma(du_pmea)
+```
+
+# Generate an Alignment-based upgma tree for meandrina
+
+```{r}
+fasta_dss <- fasta_pmea %>%
+  dna_to_DNAStringset()
+
+aligned <- AlignSeqs(fasta_dss, verbose = TRUE)
+
+writeXStringSet(aligned, filepath = "meandrina_aligned.fasta")
+
+aligned <- read.alignment("meandrina_aligned.fasta", format = "fasta")
+
+dist.al <- dist.alignment(aligned)
+dist.al <- (as.matrix(dist.alignment(aligned, matrix = "identity" )))^2
+
+align_tree <- phangorn::upgma(dist.al)
+
+#matrix with unifrac distances for each coral sample  
+unidist_align <- GUniFrac(seqs_wide, align_tree)   #GUniFrac calculates all the distances 
+unidist_align <- unidist_align$unifracs
+du_pmea_align <- unidist_align[, , "d_0.5"]
+
+hclust_samps_pmea_align <- upgma(du_pmea_align)
+```
+
+# Visualise alignment to check for quality
+
+```{r}
+aligned_df <- read_fasta_df("meandrina_aligned.fasta")
+# Create profile key
+key <- aligned_df %>%
+  tibble::rownames_to_column(var = "id") %>%
+  select(id, label)
+# Create long dataframe for ggplot
+long_fasta <- str_split(aligned_df$sequence, "") %>%
+  reshape2::melt() %>%
+  group_by(L1) %>%
+  mutate(x = row_number(),
+         L1 = as.character(L1)) %>%
+  left_join(., key, by = c("L1" = "id")) %>%
+  ungroup()
+# Plot alignment
+ggplot(long_fasta, aes(y = label, x = x)) +
+      geom_tile(aes(fill = value), size = 2) +
+      scale_fill_manual(values = palette) +
+      theme(aspect.ratio = 0.5,
+            axis.title.y = element_blank()) +
+      scale_x_continuous(expand = c(0, 0))
+```
+
+# Create tanglegram
+
+```{r}
+library(dendextend)
+library(scales)
+
+k_dend <- hclust_samps_pmea %>% as.dendrogram() # kmer based dendrogram
+a_dend <- hclust_samps_pmea_align %>% as.dendrogram() # alignment based dendrogram
+
+a_k <- dendlist(k_dend, a_dend) %>% untangle()
+
+k_lab_df <- enframe(labels(a_k[[1]])) %>% 
+  left_join(., full_meta2, by = c("value" = "plate_position")) %>%
+  select(name, value, `GPS south`) %>%
+  mutate(colour = seq_gradient_pal("yellow", "black")(rescale(`GPS south`)))
+
+a_k[[1]] <- assign_values_to_leaves_edgePar(dend = a_k[[1]], value = k_lab_df$colour, edgePar = "col") # This gets the GPS info back into the dendrogram leaf colour
+
+a_lab_df <- enframe(labels(a_k[[2]])) %>%
+  left_join(., full_meta2, by = c("value" = "plate_position")) %>%
+  select(name, value, `GPS south`) %>%
+  mutate(colour = seq_gradient_pal("yellow", "black")(rescale(`GPS south`)))
+
+a_k[[2]] <- assign_values_to_leaves_edgePar(dend = a_k[[2]], value = a_lab_df$colour, edgePar = "col") # This gets the GPS info back into the dendrogram leaf colour
+
+x <- a_k %>% tanglegram() # Create tanglegram (left tree is kmer, right tree is sequence alignment)
+
+x %>% plot(main = paste("entanglement =", round(entanglement(x), 2))) # With entanglement score
+```
+
