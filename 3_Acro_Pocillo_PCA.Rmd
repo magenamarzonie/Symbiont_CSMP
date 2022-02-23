@@ -271,7 +271,7 @@ lat/long are strongly correlated. we'll sector to represent geography
 
 When one independent variable is highly correlated with another independent variable (or with a combination of
 independent variables), the marginal contribution of that independent variable is influenced by other predictor
-variables in the model. In this case, estimanes for the regression coefficient of these variables can be unreliable
+variables in the model. In this case, estimates for the regression coefficient of these variables can be unreliable
 or misleading.
 
 To check for multicolinearity problem in our model, we need the vif() function from the car package. vif()
