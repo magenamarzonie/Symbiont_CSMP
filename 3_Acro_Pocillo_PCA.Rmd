@@ -251,8 +251,6 @@ ggplot()+
 ```
 
 
-
-
 ### select traits
 https://fukamilab.github.io/BIO202/06-B-constrained-ordination.html
 ```{r}
