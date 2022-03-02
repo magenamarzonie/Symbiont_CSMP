@@ -198,6 +198,7 @@ tree_pver$data <- left_join(tree_pver$data, full_meta2, by = c("label" = "plate_
 
 
 tree_tip_pver <- tree_pver + geom_tippoint(aes(color=-`GPS south`), size=2, alpha=1) +
+  geom_tiplab(size = 2) + 
   scale_color_viridis_c(option = "magma")
 ggsave("pver_tree.png") #dpi =300, width=110, height=180, units = "mm")
 
@@ -254,7 +255,7 @@ seqs_wide <- seqs_long %>%
   filter(!str_detect(name, "A|G")) %>%
   filter(name %in% pmea_seqs$name) %>%
   pivot_wider(names_from = name, values_from = value) %>%
-  mutate(across(everything(), replace_na, 0)) %>%
+    mutate(across(where(is.numeric), replace_na, 0)) %>%
   filter(plate_position %in% pmea_seqs$plate_position) %>%
   tibble::column_to_rownames(var = "plate_position")
 
@@ -331,7 +332,7 @@ seqs_wide <- seqs_long %>%
   filter(!str_detect(name, "A|G")) %>%
   filter(name %in% punk_seqs$name) %>%
   pivot_wider(names_from = name, values_from = value) %>%
-  mutate(across(everything(), replace_na, 0)) %>%
+  mutate(across(where(is.numeric), replace_na, 0)) %>%
   filter(plate_position %in% punk_seqs$plate_position) %>%
   tibble::column_to_rownames(var = "plate_position")
 
@@ -410,7 +411,7 @@ seqs_wide <- seqs_long %>%
   filter(!str_detect(name, "A|G")) %>%
   filter(name %in% acro_seqs$name) %>%
   pivot_wider(names_from = name, values_from = value) %>%
-  mutate(across(everything(), replace_na, 0)) %>%
+  mutate(across(where(is.numeric), replace_na, 0)) %>%
   filter(plate_position %in% acro_seqs$plate_position) %>%
   tibble::column_to_rownames(var = "plate_position")
 

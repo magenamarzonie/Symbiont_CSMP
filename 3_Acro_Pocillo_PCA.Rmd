@@ -168,6 +168,23 @@ plot(test_pver)
 anova(test_pver)
 ```
 
+##dbRDA 
+```{r}
+#capscale function for analysing unifrac distance with RDA 
+
+pver.cap <- capscale(as.dist(du_pver) ~ Reef, data = adonis_meta_pver)
+pver.cap
+```
+
+```{r}
+#capscale function for analysing unifrac distance with RDA 
+
+pmea.cap <- capscale(as.dist(du_pmea) ~ Reef + Depth, data = adonis_meta_pmea)
+pmea.cap
+```
+
+
+
 ##b. PCoA 
 ```{r}
 pcoares_pver <- pcoa(dist_pver)
