@@ -168,6 +168,15 @@ plot(test_pver)
 anova(test_pver)
 ```
 
+
+```{r}
+#first try adonis3 function
+adonis3(as.dist(du_pver) ~ GPS_S + GPS_E + DHW3 + DHW6 , data = adonis_meta_pver)
+adonis3(as.dist(du_pver) ~  DHW3 + DHW6 + DHW9, data = adonis_meta_pver)
+
+
+```
+
 ##dbRDA 
 ```{r}
 #capscale function for analysing unifrac distance with RDA 
@@ -176,13 +185,13 @@ pver.cap <- capscale(as.dist(du_pver) ~ Reef, data = adonis_meta_pver)
 pver.cap
 ```
 
+
 ```{r}
 #capscale function for analysing unifrac distance with RDA 
 
-pmea.cap <- capscale(as.dist(du_pmea) ~ Reef + Depth, data = adonis_meta_pmea)
-pmea.cap
+pver.cap <- capscale(as.dist(du_pver) ~ Reef + Depth, data = adonis_meta_pver)
+pver.cap
 ```
-
 
 
 ##b. PCoA 
@@ -204,6 +213,58 @@ ggplot(pcoa_df_pver, aes(Axis.1, Axis.2)) +
 #ggsave("fig/pcoa_df_poci.png", dpi =300, width=8, height=8, units = "cm")
 
 ```
+
+
+## a Permanova/ Betadisper 
+```{r}
+#importing unifrac distances for analysis 
+dist_pmea <- as.dist(du_pmea, diag = FALSE)
+
+dim(du_pmea)
+
+# Sanity check
+full_meta2$plate_position %in% rownames(du_pmea)
+
+adonis_meta_pmea <- full_meta2 %>%
+  dplyr::select(plate_position, Sector, Reef, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9) %>%
+  filter(plate_position %in% rownames(du_pmea)) %>%
+  tibble::column_to_rownames(var = "plate_position") %>%
+  mutate(depth_cat = round(Depth)) %>%
+  mutate(sample_name = rownames(.))
+
+res <- adonis(dist_pmea ~ Reef, data = adonis_meta_pmea)
+
+test_pmea <- betadisper(as.dist(du_pmea), adonis_meta_pmea$Reef)
+plot(test_pmea)
+anova(test_pmea)
+```
+
+
+```{r}
+#dbRDA capscale function 
+capscale(as.dist(du_pver) ~ DHW3, data = adonis_meta_pver)
+```
+
+
+```{r}
+#the order of sequential terms: statistical significance calculated based on based on permuting distance matrix. Permutation will lead to power loss in testing effect of a covariate of interest while adjusting for other coveriates (confounders). Power loss is more evident when the confounders effects are strong. 
+
+#before running adonis, we need to see which are the strongest drivers ? And then run a few tests with additive and interacting covariates 
+
+adonis3(as.dist(du_pmea) ~ DHW6, data = adonis_meta_pmea)
+adonis3(as.dist(du_pmea) ~ GPS_S + GPS_E + DHW3 + DHW6 , data = adonis_meta_pmea)
+```
+
+
+
+#now P. unknown adonis
+```{r}
+
+```
+
+
+
+
 
 ## c. RDA P.ver
 

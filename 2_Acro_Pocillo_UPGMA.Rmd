@@ -198,7 +198,7 @@ tree_pver$data <- left_join(tree_pver$data, full_meta2, by = c("label" = "plate_
 
 
 tree_tip_pver <- tree_pver + geom_tippoint(aes(color=-`GPS south`), size=2, alpha=1) +
-  geom_tiplab(size = 2) + 
+    geom_tiplab(align=TRUE, size=1, linesize=.3, hjust = -3) +
   scale_color_viridis_c(option = "magma")
 ggsave("pver_tree.png") #dpi =300, width=110, height=180, units = "mm")
 
