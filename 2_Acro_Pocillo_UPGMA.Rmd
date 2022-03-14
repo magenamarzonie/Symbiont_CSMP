@@ -68,10 +68,6 @@ full_meta2 %>% mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville
 ```
 
 
-```{r}
-save()
-```
-
 #Three data frames for the Pocillopora species
 ```{r}
 #keeping A.cf. humilis data - filtering out Poci and unknown samples 
