@@ -29,6 +29,7 @@ select = dplyr::select
 ```{r}
 #load environmental data 
 load("Data/SiteDisturbanceHistory_DHW.RData")
+load("Data/SiteDisturbanceHistory_DHW.RData")
 
 #load seq data from 2_UPGMA
 load("Data/du_acro.RData")
@@ -42,15 +43,15 @@ load("Data/full_meta.RData")
 #Merge enviro and symbiont metadata 
 ```{r}
 #change site names so they will merge with full_meta 
-full_meta2 = full_meta %>% left_join(site.bleachings, by = c("Reef", "Site")) %>% 
+full_meta2 = full_meta2 %>% 
   mutate(DHW = as.numeric(DHW),
-         Reef = as.factor(Reef),
+         Reef = as.factor(Reef.x),
          Site = as.factor(Site),
          Exposure = as.factor(Exposure),
+         catBleaching = as.factor(catBleaching),
          Aspect = as.factor(Aspect),
          Morphotype = as.factor(Morphotype))
 ```
-
 
 # ----------------------------------------------------------
 Permanova/ PCoA: **Pocillopora all species**
@@ -151,17 +152,68 @@ dist_pver <- as.dist(du_pver, diag = FALSE)
 
 dim(du_pver)
 
-# Sanity check
-full_meta2$plate_position %in% rownames(du_pver)
-
 adonis_meta_pver <- full_meta2 %>%
-  dplyr::select(plate_position, Sector, Reef, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9) %>%
+  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9) %>%
   filter(plate_position %in% rownames(du_pver)) %>%
   tibble::column_to_rownames(var = "plate_position") %>%
-  mutate(depth_cat = round(Depth)) %>%
   mutate(sample_name = rownames(.))
 
-res <- adonis(dist_pver ~ Reef, data = adonis_meta_pver)
+car::vif(lm(1:nrow(adonis_meta_pver) ~ GPS_S + Aspect + Exposure + catBleaching + Depth + DHW, data=adonis_meta_pver))
+
+#                   GVIF Df GVIF^(1/(2*Df))
+# GPS_S         6.142029  1        2.478312
+# Aspect       53.862659  6        1.394036
+# Exposure     22.149506  3        1.675820
+# catBleaching  1.588898  5        1.047393
+# Depth         1.535612  1        1.239198
+# DHW           7.904910  1        2.811567
+
+res.ad <- adonis3(dist_pver ~ catBleaching, data = adonis_meta_pver, permutations = 999)
+
+#               Df SumsOfSqs  MeanSqs F.Model      R2 Pr(>F)   
+# GPS_S          1    0.0840 0.083967 3.15665 0.02039 0.0059 **
+# Aspect         6    0.1942 0.032373 1.21703 0.04717 0.1731   
+# Exposure       3    0.0955 0.031827 1.19648 0.02319 0.2357   
+# catBleaching   5    0.1310 0.026200 0.98497 0.03181 0.4791   
+# Depth          1    0.0325 0.032517 1.22243 0.00790 0.2527   
+# DHW            1    0.0164 0.016385 0.61599 0.00398 0.7722   
+# Residuals    134    3.5644 0.026600         0.86557          
+# Total        151    4.1180                  1.00000          
+ 
+
+beta <- betadisper(dist_pver, adonis_meta_pver$GPS_S)
+anova(beta)
+# Analysis of Variance Table
+# 
+# Response: Distances
+#            Df  Sum Sq   Mean Sq F value Pr(>F)
+# Groups     21 0.09242 0.0044012  0.7705 0.7504
+# Residuals 130 0.74258 0.0057121 
+
+plot(beta)
+
+res.cap <- capscale(dist_pver ~ GPS_S + Aspect + Exposure + catBleaching + Depth + DHW, data = adonis_meta_pver)
+(fit <- envfit(res.cap, adonis_meta_pver %>% select(GPS_S, Aspect, Exposure, catBleaching, Depth, DHW), perm = 999))
+
+scores(fit, "vectors")
+plot(res.cap)
+plot(fit)
+plot(fit, p.max = 0.05, col = "red")
+
+res.cap <- capscale(dist_pver ~ GPS_S, data = adonis_meta_pver)
+
+car::vif(res.cap)
+
+permutest(res.cap)
+
+res.ad
+res.cap
+plot(res.cap)
+RsquareAdj(res.cap)
+
+pca <- rda(elementome_rda)
+eig <- eigenvals(res.cap)
+eig <- data.frame(summary(eig))
 
 test_pver <- betadisper(as.dist(du_pver), adonis_meta_pver$Reef)
 plot(test_pver)
