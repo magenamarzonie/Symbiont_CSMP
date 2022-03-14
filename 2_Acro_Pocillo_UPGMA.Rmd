@@ -67,6 +67,11 @@ full_meta2 = full_meta %>%
 full_meta2 %>% mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 ```
 
+
+```{r}
+save()
+```
+
 #Three data frames for the Pocillopora species
 ```{r}
 #keeping A.cf. humilis data - filtering out Poci and unknown samples 
@@ -476,6 +481,6 @@ save(du_acro, file = "Data/du_acro.Rdata")
 save(du_pver, file = "Data/du_pver.Rdata")
 save(du_pmea, file = "Data/du_pmea.Rdata")
 save(du_punk, file = "Data/du_punk.Rdata")
-
+save(full_meta, file = "Data/full_meta.Rdata")
 ```
 
