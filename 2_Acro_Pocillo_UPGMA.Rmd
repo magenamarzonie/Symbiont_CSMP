@@ -59,7 +59,9 @@ load("Data/profile_data.Rdata")
 load("Data/SiteDisturbanceHistory_DHW.RData")
 
 #add thermal history data to metadata 
-full_meta2 = full_meta %>% left_join(site.bleachings, by = "Site") 
+full_meta2 = full_meta %>% 
+  left_join(site.bleachings, by = "Site") %>% 
+  mutate(DHW = case_when(DHW == "t" ~ "6.869999846", TRUE ~ DHW))
 
 #relevel reef in order of latitude 
 full_meta2 %>% mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))

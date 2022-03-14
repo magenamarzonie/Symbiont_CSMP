@@ -246,6 +246,7 @@ capscale(as.dist(du_pver) ~ DHW3, data = adonis_meta_pver)
 ```
 
 
+
 ```{r}
 #the order of sequential terms: statistical significance calculated based on based on permuting distance matrix. Permutation will lead to power loss in testing effect of a covariate of interest while adjusting for other coveriates (confounders). Power loss is more evident when the confounders effects are strong. 
 
