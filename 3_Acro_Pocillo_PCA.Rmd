@@ -161,13 +161,19 @@ adonis_meta_pver <- full_meta2 %>%
 #dbrda 
 ord <- dbrda(dist_pver ~ Exposure + Depth + DHW3 + GPS_S, data = adonis_meta_pver, permutations = 9999)
 anova(ord, by = 'margin')    #indicates the marginal effect after controlling for the other variables. 
-anova(ord, by = 'terms')     #analyses terms added sequentially. You get different significance because the terms are correlated, so which one goes into the model first determines how much variation is left to be explained by the second, or third... 
+#anova(ord, by = 'terms')     #analyses terms added sequentially. You get different significance because the terms are correlated, so which one goes into the model first determines how much variation is left to be explained by the second, or third... 
 
 #capscale function for comparison 
 ord2 <- capscale(dist_pver ~ Exposure + Depth + DHW3 + GPS_S, data = adonis_meta_pver, permutations = 9999)
 anova(ord2, by = 'margin')
 
+plot(ord2)
+
 #Depth is sometimes significant, depending on the order. Exposure and Aspect never significant. 
+
+ord3 <- dbrda(dist_pver ~ DHW3 * GPS_S, data = adonis_meta_pver, permutations = 9999)
+anova(ord3, by = 'margin')
+
 
 
 car::vif(lm(1:nrow(adonis_meta_pver) ~ GPS_S + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_pver))
