@@ -92,7 +92,7 @@ full_meta2 %>% mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville
 #Three data frames for the Pocillopora species
 
 ```{r}
-pmea_seqs <- seqs_long %>% filter(str_detect(Species, "Pmeandrina"))
+pver_seqs <- seqs_long %>% filter(str_detect(Species, "Pverrucosa"))
 ```
 
 # Generate a Kmer-based tree for meandrina
@@ -101,47 +101,47 @@ Note: the higher the k value, the less entangled the two trees are
 
 ```{r}
 #read in file 
-fasta_pmea <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
-  filter(label %in% pmea_seqs$name) %>%   #only keeping DNA seqs that appear in seqs_long subset 
+fasta_pver <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
+  filter(label %in% pver_seqs$name) %>%   #only keeping DNA seqs that appear in seqs_long subset 
   filter(!str_detect(label, "A|G")) %>%
   deframe() %>%
   as_dna()
 
-kdist_pmea <- fasta_pmea %>%
+kdist_pver <- fasta_pver %>%
   dna_to_DNAbin() %>%
   kdistance(k = 8, residues = "DNA", method = "edgar") %>%
   as.matrix()
 
-tree_pmea <- kdist_pmea %>% phangorn::upgma()
+tree_pver <- kdist_pver %>% phangorn::upgma()
 
 seqs_wide <- seqs_long %>%
   dplyr::select(plate_position, name, value) %>%
   filter(!str_detect(name, "A|G")) %>%
-  filter(name %in% pmea_seqs$name) %>%
+  filter(name %in% pver_seqs$name) %>%
   pivot_wider(names_from = name, values_from = value) %>%
   mutate(across(where(is.numeric), replace_na, 0)) %>%
-  filter(plate_position %in% pmea_seqs$plate_position) %>%
+  filter(plate_position %in% pver_seqs$plate_position) %>%
   tibble::column_to_rownames(var = "plate_position")
 
 #matrix with unifrac distances for each coral sample  
-unidist_pmea <- GUniFrac(seqs_wide, tree_pmea)   #GUniFrac calculates all the distances 
-unifracs_pmea <- unidist_pmea$unifracs
-du_pmea<- unifracs_pmea[, , "d_0.5"]  #can change Unifrac type.- go to GUniFrac in Help section   
+unidist_pver <- GUniFrac(seqs_wide, tree_pver)   #GUniFrac calculates all the distances 
+unifracs_pver <- unidist_pver$unifracs
+du_pver<- unifracs_pver[, , "d_0.5"]  #can change Unifrac type.- go to GUniFrac in Help section   
 
-hclust_samps_pmea <- upgma(du_pmea)
+hclust_samps_pver <- upgma(du_pver)
 ```
 
 # Generate an Alignment-based upgma tree for meandrina
 
 ```{r}
-fasta_dss <- fasta_pmea %>%
+fasta_dss <- fasta_pver %>%
   dna_to_DNAStringset()
 
 aligned <- AlignSeqs(fasta_dss, verbose = TRUE)
 
-writeXStringSet(aligned, filepath = "meandrina_aligned.fasta")
+writeXStringSet(aligned, filepath = "verrucosa_aligned.fasta")
 
-aligned <- read.alignment("meandrina_aligned.fasta", format = "fasta")
+aligned <- read.alignment("verrucosa_aligned.fasta", format = "fasta")
 
 dist.al <- dist.alignment(aligned, gap = TRUE)
 dist.al <- (as.matrix(dist.alignment(aligned, matrix = "identity" )))^2
@@ -151,9 +151,9 @@ align_tree <- phangorn::upgma(dist.al)
 #matrix with unifrac distances for each coral sample  
 unidist_align <- GUniFrac(seqs_wide, align_tree)   #GUniFrac calculates all the distances 
 unidist_align <- unidist_align$unifracs
-du_pmea_align <- unidist_align[, , "d_0.5"]
+du_pver_align <- unidist_align[, , "d_0.5"]
 
-hclust_samps_pmea_align <- upgma(du_pmea_align)
+hclust_samps_pver_align <- upgma(du_pver_align)
 ```
 
 # Visualise alignment to check for quality
@@ -187,8 +187,8 @@ ggplot(long_fasta, aes(y = label, x = x)) +
 library(dendextend)
 library(scales)
 
-k_dend <- hclust_samps_pmea %>% as.dendrogram() # kmer based dendrogram
-a_dend <- hclust_samps_pmea_align %>% as.dendrogram() # alignment based dendrogram
+k_dend <- hclust_samps_pver %>% as.dendrogram() # kmer based dendrogram
+a_dend <- hclust_samps_pver_align %>% as.dendrogram() # alignment based dendrogram
 
 a_k <- dendlist(k_dend, a_dend) %>% untangle()
 
@@ -209,5 +209,20 @@ a_k <- dendlist(k_dend, a_dend) %>% untangle()
 x <- a_k %>% tanglegram(common_subtrees_color_lines = TRUE) # Create tanglegram (left tree is kmer, right tree is sequence alignment)
 
 x %>% plot(main = paste("entanglement =", round(entanglement(x), 2))) # With entanglement score
+```
+
+
+```{r}
+#feed different trees into the distances - 2 trees, 3 UF distance = 6 options
+
+k_dend <- hclust_samps_pver %>% as.dendrogram() # kmer based dendrogram
+a_dend <- hclust_samps_pver_align %>% as.dendrogram() # alignment based dendrogram
+
+#matrix with unifrac distances for each coral sample  
+unidist_poci <- GUniFrac(seqs_wide, tree_poci)   #GUniFrac calculates all the distances 
+unifracs_poci <- unidist_poci$unifracs
+du_poci <- unifracs_poci[, , "d_0.5"]  #can change Unifrac type.- go to GUniFrac in Help section   
+
+hclust_samps_poci <- upgma(du_poci)
 ```
 

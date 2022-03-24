@@ -141,6 +141,9 @@ ggplot(pcoa_df_poci, aes(Axis.1, Axis.2)) +
 ```
 
 
+# ----------------------------------------------------------
+Different UniFrac distances impact on dbRDA results
+# ----------------------------------------------------------
 
 # ----------------------------------------------------------
 Permanova/ PCoA: **Pocillopora verrucosa**
@@ -149,9 +152,19 @@ Permanova/ PCoA: **Pocillopora verrucosa**
 ## a Permanova/ Betadisper 
 ```{r}
 #importing unifrac distances for analysis 
-dist_pver <- as.dist(du_pver, diag = FALSE)
 
-dim(du_pver)
+du_pver_0.5 <- unifracs_pver[, , "d_0.5"]
+du_pver_w <- unifracs_pver[, , "d_1"]  #can change Unifrac type.- go to GUniFrac in Help section   
+du_pver_uw <- unifracs_pver[, , "d_0"] 
+
+dist_pver_0.5 <- as.dist(du_pver_0.5, diag = FALSE)
+dist_pver_w <- as.dist(du_pver_w, diag = FALSE)
+dist_pver_uw <- as.dist(du_pver_uw, diag = FALSE)
+
+#all the same dimensions
+dim(du_pver_0.5)
+dim(du_pver_w)
+dim(du_pver_uw)
 
 adonis_meta_pver <- full_meta2 %>%
   dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9) %>%
@@ -159,6 +172,25 @@ adonis_meta_pver <- full_meta2 %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
 
+ord_pver_0.5 <- dbrda(dist_pver_0.5 ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3  + DHW6, data = adonis_meta_pver, permutations = 9999)
+anova(ord_pver_0.5, by = 'margin')   
+
+ord_pver_w <- dbrda(dist_pver_w ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6, data = adonis_meta_pver, permutations = 9999)
+anova(ord_pver_w, by = 'margin')   
+
+ord_pver_uw <- dbrda(dist_pver_uw ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6, data = adonis_meta_pver, permutations = 9999)
+anova(ord_pver_uw, by = 'margin')   
+
+
+pver_0.5 <- plot(ord_pver0.5)
+pver_w <- plot(ord_pver_w)
+pver_uw <- plot(ord_pver_uw)
+
+```
+
+
+
+```{r}
 #dbrda 
 ord <- dbrda(dist_pver ~ Exposure + Depth + DHW3 + GPS_S, data = adonis_meta_pver, permutations = 9999)
 anova(ord, by = 'margin')    #indicates the marginal effect after controlling for the other variables. 
