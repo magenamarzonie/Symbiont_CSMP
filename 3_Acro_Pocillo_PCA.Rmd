@@ -189,6 +189,87 @@ pver_uw <- plot(ord_pver_uw)
 ```
 
 
+## a Permanova/ Betadisper 
+```{r}
+#importing unifrac distances for analysis 
+#matrix with unifrac distances for each coral sample  
+
+du_pmea_0.5 <- unifracs_pmea[, , "d_0.5"]
+du_pmea_w <- unifracs_pmea[, , "d_1"]  #can change Unifrac type.- go to GUniFrac in Help section   
+du_pmea_uw <- unifracs_pmea[, , "d_0"] 
+
+dist_pmea_0.5 <- as.dist(du_pmea_0.5, diag = FALSE)
+dist_pmea_w <- as.dist(du_pmea_w, diag = FALSE)
+dist_pmea_uw <- as.dist(du_pmea_uw, diag = FALSE)
+
+#all the same dimensions
+dim(du_pmea_0.5)
+dim(du_pmea_w)
+dim(du_pmea_uw)
+
+adonis_meta_pmea <- full_meta2 %>%
+  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9) %>%
+  filter(plate_position %in% rownames(du_pmea)) %>%
+  tibble::column_to_rownames(var = "plate_position") %>%
+  mutate(sample_name = rownames(.))
+
+ord_pmea_0.5 <- dbrda(dist_pmea_0.5 ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3  + DHW6, data = adonis_meta_pmea, permutations = 9999)
+anova(ord_pmea_0.5, by = 'margin')   
+
+ord_pmea_w <- dbrda(dist_pmea_w ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6, data = adonis_meta_pmea, permutations = 9999)
+anova(ord_pmea_w, by = 'margin')   
+
+ord_pmea_uw <- dbrda(dist_pmea_uw ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6, data = adonis_meta_pmea, permutations = 9999)
+anova(ord_pmea_uw, by = 'margin')   
+
+
+pmea_0.5 <- plot(ord_pmea_0.5)
+pmea_w <- plot(ord_pmea_w)
+pmea_uw <- plot(ord_pmea_uw)
+
+```
+
+#acropora humilis 
+```{r}
+#importing unifrac distances for analysis 
+
+du_acro_0.5 <- unifracs_acro[, , "d_0.5"]
+du_acro_w <- unifracs_acro[, , "d_1"]  #can change Unifrac type.- go to GUniFrac in Help section   
+du_acro_uw <- unifracs_acro[, , "d_0"] 
+
+dist_acro_0.5 <- as.dist(du_acro_0.5, diag = FALSE)
+dist_pver_w <- as.dist(du_pver_w, diag = FALSE)
+dist_pver_uw <- as.dist(du_pver_uw, diag = FALSE)
+
+#all the same dimensions
+dim(du_pver_0.5)
+dim(du_pver_w)
+dim(du_pver_uw)
+
+adonis_meta_pver <- full_meta2 %>%
+  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9) %>%
+  filter(plate_position %in% rownames(du_pver)) %>%
+  tibble::column_to_rownames(var = "plate_position") %>%
+  mutate(sample_name = rownames(.))
+
+ord_pver_0.5 <- dbrda(dist_pver_0.5 ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3  + DHW6, data = adonis_meta_pver, permutations = 9999)
+anova(ord_pver_0.5, by = 'margin')   
+
+ord_pver_w <- dbrda(dist_pver_w ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6, data = adonis_meta_pver, permutations = 9999)
+anova(ord_pver_w, by = 'margin')   
+
+ord_pver_uw <- dbrda(dist_pver_uw ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6, data = adonis_meta_pver, permutations = 9999)
+anova(ord_pver_uw, by = 'margin')   
+
+
+pver_0.5 <- plot(ord_pver0.5)
+pver_w <- plot(ord_pver_w)
+pver_uw <- plot(ord_pver_uw)
+
+```
+
+
+
 
 ```{r}
 #dbrda 
