@@ -267,8 +267,10 @@ seqs_wide <- seqs_long %>%
 #matrix with unifrac distances for each coral sample  
 unidist_pmea <- GUniFrac(seqs_wide, tree_pmea)   #GUniFrac calculates all the distances 
 unifracs_pmea <- unidist_pmea$unifracs
-du_pmea<- unifracs_pmea[, , "d_0.5"]  #can change Unifrac type.- go to GUniFrac in Help section   
-
+du_pmea_0.5<- unifracs_pmea[, , "d_0.5"]  #can change Unifrac type.- go to GUniFrac in Help section   
+du_pmea_w <-  unifracs_pmea[, , "d_1"]
+du_pmea_uw <- unifracs_pmea[, , "d_0"]
+ 
 hclust_samps_pmea <- upgma(du_pmea)
 
 ggtree_samps_pmea <- ggtree::ggtree(hclust_samps_pmea)$data %>%
