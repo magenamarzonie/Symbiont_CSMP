@@ -13,17 +13,27 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(ggsci)
 library(tidyverse)
-library(kmer)
+library(dplyr)
+library(forcats)
+library(reshape2)
+library(stringr)
+library(tidyr)
+library(tibble)
+library(sangerseqR)
+library(DECIPHER)
+library(Biostrings)
 library(phangorn)
-library(GUniFrac)
+library(ape)
+library(ggplot2)
 library(ggtree)
 library(patchwork)
 library(bioseq)
-library(ape)
-library(Biostrings)
+library(kmer)
+library(GUniFrac)
+library(seqinr)
 ```
 
-Custom functions
+Custom functions (eventually move this to a separate file that we load in)
 ```{r}
 dna_to_DNAbin <- function (dna){
   DNAbin <- as_DNAbin(dna)
@@ -42,6 +52,20 @@ read_fasta_df <- function (file = "") {
   }
   tib <- tibble(label = gsub(">", "", fasta[ind]), sequence = seqs)
   return(tib)
+}
+
+dna_to_DNAbin <- function (dna){
+  DNAbin <- as_DNAbin(dna)
+  names(DNAbin) <- names(dna)
+  return(DNAbin)
+}
+
+dna_to_DNAStringset <- function(x) 
+{
+    bioseq:::check_dna(x)
+    DNAstr <- DNAStringSet(paste(x))
+    names(DNAstr) <- names(x)
+    return(DNAstr)
 }
 ```
 
@@ -67,7 +91,6 @@ full_meta2 = full_meta %>%
 full_meta2 %>% mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 ```
 
-
 #Three data frames for the Pocillopora species
 ```{r}
 #keeping A.cf. humilis data - filtering out Poci and unknown samples 
@@ -77,82 +100,10 @@ pmea_seqs <- seqs_long %>% filter(str_detect(Species, "Pmeandrina"))
 punk_seqs <- seqs_long %>% filter(str_detect(Species, "Unknown"))
 ```
 
-# Fig 2A Pocillopora all species Phylogenetic Tree
-```{r}
-#read in file 
-fasta_poci <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
-  filter(label %in% poci_seqs$name) %>%   #only keeping DNA seqs that appear in seqs_long subset 
-  filter(!str_detect(label, "A|G")) %>%
-  deframe() %>%
-  as_dna()
-
-
-kdist_poci <- fasta_poci %>%
-  dna_to_DNAbin() %>%
-  kdistance(k = 5, residues = "DNA", method = "edgar") %>%
-  as.matrix()
-
-tree_poci <- kdist_poci %>% phangorn::upgma()
-
-seqs_wide <- seqs_long %>%
-  dplyr::select(plate_position, name, value) %>%
-  filter(!str_detect(name, "A|G")) %>%
-  filter(name %in% poci_seqs$name) %>%
-  pivot_wider(names_from = name, values_from = value, values_fill = 0) %>%
-  #mutate(across(everything(), replace_na, 0)) %>%
-  filter(plate_position %in% poci_seqs$plate_position) %>%
-  tibble::column_to_rownames(var = "plate_position")
-
-#matrix with unifrac distances for each coral sample  
-unidist_poci <- GUniFrac(seqs_wide, tree_poci)   #GUniFrac calculates all the distances 
-unifracs_poci <- unidist_poci$unifracs
-du_poci <- unifracs_poci[, , "d_0.5"]  #can change Unifrac type.- go to GUniFrac in Help section   
-
-hclust_samps_poci <- upgma(du_poci)
-
-ggtree_samps_poci <- ggtree::ggtree(hclust_samps_poci)$data %>%
-  filter(isTip == "TRUE") %>%
-  arrange(y)
-
-tree_poci <- ggtree(hclust_samps_poci, size = 0.2) +
-  scale_x_reverse() +
-  theme(aspect.ratio = 1.8)
-
-tree_poci$data <- left_join(tree_poci$data, full_meta2, by = c("label" = "plate_position")) %>% 
-      mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
-
-tree_tip_poci <- tree_poci  + 
-  geom_tippoint(aes(color=Species), size=0.3, alpha=1) +
-  scale_color_d3(palette = "category20")
-
-tree_tip_poci
-
-plot_df_poci <- all_data %>%
-  filter(str_detect(Species, "P|k")) %>%
-  mutate(plate_position = fct_relevel(plate_position, ggtree_samps_poci$label))
-
-theme_set(theme_bw())
-
-
-bar_uni_poci <- 
-ggplot(plot_df_poci, aes(value_rel, plate_position)) +
-geom_bar(stat = "identity", aes(fill = name, colour = name)) +
-theme(aspect.ratio = 0.5, legend.position = "none", axis.text.y=element_blank(), axis.ticks.y = element_blank(),
-      axis.text.x=element_blank(), axis.ticks.x = element_blank(),
-      axis.title.x = element_blank(), axis.title.y = element_blank(),
-      panel.border = element_blank(), panel.grid.major = element_blank(),
-panel.grid.minor = element_blank(), axis.ticks = element_blank()) +
-scale_fill_manual(values = all_pal, breaks = levels(profile_data$name)) +
-scale_colour_manual(values = all_pal, breaks = levels(profile_data$name)) +
-geom_vline(xintercept = 1, size = 1) +
-guides(fill=guide_legend(ncol=3))
-
-#p_bar_uni is the sequences by colour. P_tree_tip is the tree coloured by reef. 
-ggsave("Poci_tree.png")
-bar_uni_poci + tree_tip_poci
-```
-
 # Fig 2B P. verrucosa Phylogenetic Tree
+
+OBSERVATIONS: k-mer tree + unweighted unifrac AND the Alignment-tree + Gunifrac 0.5 do a good job of placing the southernmost samples together.
+
 ```{r}
 #read in file 
 fasta_pver <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
@@ -161,13 +112,30 @@ fasta_pver <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T0244
   deframe() %>%
   as_dna()
 
+# Unifracs
+
+## With a kmer-based tree
 
 kdist_pver <- fasta_pver %>%
   dna_to_DNAbin() %>%
-  kdistance(k = 5, residues = "DNA", method = "edgar") %>%
+  kdistance(k = 7, residues = "DNA", method = "edgar") %>%
   as.matrix()
 
-tree_pver <- kdist_pver %>% phangorn::upgma()
+k_tree_pver <- kdist_pver %>% phangorn::upgma()
+
+## With an alignment-based tree
+
+fasta_dss <- fasta_pver %>%
+  dna_to_DNAStringset()
+aligned <- AlignSeqs(fasta_dss, verbose = TRUE)
+writeXStringSet(aligned, filepath = "Data/verrucosa_aligned.fasta")
+aligned <- read.alignment("Data/verrucosa_aligned.fasta", format = "fasta")
+dist.al <- dist.alignment(aligned, gap = TRUE)
+dist.al <- (as.matrix(dist.alignment(aligned, matrix = "identity" )))^2
+
+align_tree_pver <- phangorn::upgma(dist.al)
+
+# Get the community matrix
 
 seqs_wide <- seqs_long %>%
   dplyr::select(plate_position, name, value) %>%
@@ -179,43 +147,53 @@ seqs_wide <- seqs_long %>%
   tibble::column_to_rownames(var = "plate_position")
 
 pver.community.matrix = seqs_wide
-save(pver.community.matrix, file = "pver.community.matrix.RData")
+save(pver.community.matrix, file = "Data/pver.community.matrix.RData")
 
-#matrix with unifrac distances for each coral sample  
-unidist_pver <- GUniFrac(seqs_wide, tree_pver)   #GUniFrac calculates all the distances 
-unifracs_pver <- unidist_pver$unifracs
-du_pver <- unifracs_pver[, , "d_0.5"]  #can change Unifrac type.- go to GUniFrac in Help section 
-du_pver_w <- unifracs_pver[, , "d_1"] #weighted unifrac
-du_pver_uw <- unifracs_pver[, , "d_UW"]    #unweighted unifrac
+# comput unifrac distances  
+k_unidist_pver <- GUniFrac(seqs_wide, k_tree_pver)   #GUniFrac calculates all the distances 
+k_unidist_pver <- k_unidist_pver$unifracs
+align_unidist_pver <- GUniFrac(seqs_wide, align_tree_pver)   #GUniFrac calculates all the distances 
+align_unidist_pver <- align_unidist_pver$unifracs
 
+save(k_unidist_pver, file = "Data/unifracs_pver_kmer.RData")
+save(align_unidist_pver, file = "Data/unifracs_pver_align.RData")
+
+#Choose one for plotting
+#du_pver <- k_unidist_pver[, , "d_UW"]    #unweighted unifrac
+#du_pver <- align_unidist_pver[, , "d_UW"]    #unweighted unifrac
+#du_pver <- k_unidist_pver[, , "d_1"]    # Weighted UniFrac
+#du_pver <- align_unidist_pver[, , "d_1"]    # Weighted UniFrac
+#du_pver <- k_unidist_pver[, , "d_0.5"]    # GUniFrac with alpha 0.5 
+du_pver <- align_unidist_pver[, , "d_0.5"]    # GUniFrac with alpha 0.5 
+
+# Cluster the samples
 hclust_samps_pver <- upgma(du_pver)
 
+# Get a sample order from ggtree
 ggtree_samps_pver <- ggtree::ggtree(hclust_samps_pver)$data %>%
   filter(isTip == "TRUE") %>%
   arrange(y)
 
+# Make the sample tree
 tree_pver <- ggtree(hclust_samps_pver, size = 0.2) +
   scale_x_reverse() +
   theme(aspect.ratio = 1.8)
 
+# add in metadata
 tree_pver$data <- left_join(tree_pver$data, full_meta2, by = c("label" = "plate_position")) %>% 
   mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
-
+# color the trip tips
 tree_tip_pver <- tree_pver + geom_tippoint(aes(color=-`GPS south`), size=2, alpha=1) +
     geom_tiplab(align=TRUE, size=1, linesize=.3, hjust = -3) +
   scale_color_viridis_c(option = "magma")
-ggsave("pver_tree.png") #dpi =300, width=110, height=180, units = "mm")
 
-
-tree_tip_pver
-
+# Start plotting the composition data
 plot_df_pver <- all_data %>%
   filter(str_detect(Species, "Pverrucosa")) %>%
   mutate(plate_position = fct_relevel(plate_position, ggtree_samps_pver$label))
 
 theme_set(theme_bw())
-
 
 bar_uni_pver <- 
 ggplot(plot_df_pver, aes(value_rel, plate_position)) +
@@ -233,12 +211,12 @@ guides(fill=guide_legend(ncol=3))
 #p_bar_uni is the sequences by colour. P_tree_tip is the tree coloured by reef. 
 
 bar_uni_pver + tree_tip_pver
-ggsave("Pvertree.png")
-
 ```
 
-
 # Fig 2C P. meandrina Phylogenetic Tree
+
+OBSERVATIONS: meandrina has a north/south split. This broadley holds true for all combinations of tree-type and unifrac-dists, but with minor differences between each method.
+
 ```{r}
 #read in file 
 fasta_pmea <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
@@ -247,56 +225,89 @@ fasta_pmea <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T0244
   deframe() %>%
   as_dna()
 
+# Unifracs
+
+## With a kmer-based tree
 
 kdist_pmea <- fasta_pmea %>%
   dna_to_DNAbin() %>%
-  kdistance(k = 5, residues = "DNA", method = "edgar") %>%
+  kdistance(k = 7, residues = "DNA", method = "edgar") %>%
   as.matrix()
 
-tree_pmea <- kdist_pmea %>% phangorn::upgma()
+k_tree_pmea <- kdist_pmea %>% phangorn::upgma()
+
+## With an alignment-based tree
+
+fasta_dss <- fasta_pmea %>%
+  dna_to_DNAStringset()
+aligned <- AlignSeqs(fasta_dss, verbose = TRUE)
+writeXStringSet(aligned, filepath = "Data/meandrina_aligned.fasta")
+aligned <- read.alignment("Data/meandrina_aligned.fasta", format = "fasta")
+dist.al <- dist.alignment(aligned, gap = TRUE)
+dist.al <- (as.matrix(dist.alignment(aligned, matrix = "identity" )))^2
+
+align_tree_mea <- phangorn::upgma(dist.al)
+
+# Get the community matrix
 
 seqs_wide <- seqs_long %>%
   dplyr::select(plate_position, name, value) %>%
   filter(!str_detect(name, "A|G")) %>%
   filter(name %in% pmea_seqs$name) %>%
-  pivot_wider(names_from = name, values_from = value) %>%
-    mutate(across(where(is.numeric), replace_na, 0)) %>%
+  pivot_wider(names_from = name, values_from = value, values_fill = 0) %>%
+  #mutate(across(everything(), replace_na, 0)) %>%
   filter(plate_position %in% pmea_seqs$plate_position) %>%
   tibble::column_to_rownames(var = "plate_position")
 
-#matrix with unifrac distances for each coral sample  
-unidist_pmea <- GUniFrac(seqs_wide, tree_pmea)   #GUniFrac calculates all the distances 
-unifracs_pmea <- unidist_pmea$unifracs
-du_pmea_0.5<- unifracs_pmea[, , "d_0.5"]  #can change Unifrac type.- go to GUniFrac in Help section   
-du_pmea_w <-  unifracs_pmea[, , "d_1"]
-du_pmea_uw <- unifracs_pmea[, , "d_0"]
- 
+pmea.community.matrix = seqs_wide
+save(pmea.community.matrix, file = "Data/pmea.community.matrix.RData")
+
+# comput unifrac distances  
+k_unidist_pmea <- GUniFrac(seqs_wide, k_tree_pmea)   #GUniFrac calculates all the distances 
+k_unidist_pmea <- k_unidist_pmea$unifracs
+align_unidist_pmea <- GUniFrac(seqs_wide, align_tree_mea)   #GUniFrac calculates all the distances 
+align_unidist_pmea <- align_unidist_pmea$unifracs
+
+# save unifracs for later use
+save(k_unidist_pmea, file = "Data/unifracs_pmea_kmer.RData")
+save(align_unidist_pmea, file = "Data/unifracs_pmea_align.RData")
+
+#Choose one for plotting
+du_pmea <- k_unidist_pmea[, , "d_UW"]    #unweighted unifrac
+#du_pmea <- align_unidist_pmea[, , "d_UW"]    #unweighted unifrac
+#du_pmea <- k_unidist_pmea[, , "d_1"]    # Weighted UniFrac
+#du_pmea <- align_unidist_pmea[, , "d_1"]    # Weighted UniFrac
+#du_pmea <- k_unidist_pmea[, , "d_0.5"]    # GUniFrac with alpha 0.5 
+#du_pmea <- align_unidist_pmea[, , "d_0.5"]    # GUniFrac with alpha 0.5 
+
+# Cluster the samples
 hclust_samps_pmea <- upgma(du_pmea)
 
+# Get a sample order from ggtree
 ggtree_samps_pmea <- ggtree::ggtree(hclust_samps_pmea)$data %>%
   filter(isTip == "TRUE") %>%
   arrange(y)
 
+# Make the sample tree
 tree_pmea <- ggtree(hclust_samps_pmea, size = 0.2) +
   scale_x_reverse() +
   theme(aspect.ratio = 1.8)
 
+# add in metadata
 tree_pmea$data <- left_join(tree_pmea$data, full_meta2, by = c("label" = "plate_position")) %>% 
-    mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
+  mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
-
+# color the trip tips
 tree_tip_pmea <- tree_pmea + geom_tippoint(aes(color=-`GPS south`), size=2, alpha=1) +
+    geom_tiplab(align=TRUE, size=1, linesize=.3, hjust = -3) +
   scale_color_viridis_c(option = "magma")
 
-tree_tip_pmea
-ggsave("pmea_tree.png") #dpi =300, width=110, height=180, units = "mm")
-
+# Start plotting the composition data
 plot_df_pmea <- all_data %>%
   filter(str_detect(Species, "Pmeandrina")) %>%
   mutate(plate_position = fct_relevel(plate_position, ggtree_samps_pmea$label))
 
 theme_set(theme_bw())
-
 
 bar_uni_pmea <- 
 ggplot(plot_df_pmea, aes(value_rel, plate_position)) +
@@ -313,11 +324,14 @@ guides(fill=guide_legend(ncol=3))
 
 #p_bar_uni is the sequences by colour. P_tree_tip is the tree coloured by reef. 
 
-pmea_latitudetree <- bar_uni_pmea + tree_tip_pmea
+bar_uni_pmea + tree_tip_pmea
 ```
 
-
 # Fig 2C Poci unknown Phylogenetic Tree
+
+OBSERVATIONS: as for meandrina, the unknown pocillo has a north/south split. This is even more consistent here than for meandrina.
+
+
 ```{r}
 #read in file 
 fasta_punk <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
@@ -326,53 +340,88 @@ fasta_punk <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T0244
   deframe() %>%
   as_dna()
 
+# Unifracs
+
+## With a kmer-based tree
 
 kdist_punk <- fasta_punk %>%
   dna_to_DNAbin() %>%
-  kdistance(k = 5, residues = "DNA", method = "edgar") %>%
+  kdistance(k = 7, residues = "DNA", method = "edgar") %>%
   as.matrix()
 
-tree_punk <- kdist_punk %>% phangorn::upgma()
+k_tree_punk <- kdist_punk %>% phangorn::upgma()
+
+## With an alignment-based tree
+
+fasta_dss <- fasta_punk %>%
+  dna_to_DNAStringset()
+aligned <- AlignSeqs(fasta_dss, verbose = TRUE)
+writeXStringSet(aligned, filepath = "Data/punkown_aligned.fasta")
+aligned <- read.alignment("Data/punkown_aligned.fasta", format = "fasta")
+dist.al <- dist.alignment(aligned, gap = TRUE)
+dist.al <- (as.matrix(dist.alignment(aligned, matrix = "identity" )))^2
+
+align_tree_unk <- phangorn::upgma(dist.al)
+
+# Get the community matrix
 
 seqs_wide <- seqs_long %>%
   dplyr::select(plate_position, name, value) %>%
   filter(!str_detect(name, "A|G")) %>%
   filter(name %in% punk_seqs$name) %>%
-  pivot_wider(names_from = name, values_from = value) %>%
-  mutate(across(where(is.numeric), replace_na, 0)) %>%
+  pivot_wider(names_from = name, values_from = value, values_fill = 0) %>%
+  #mutate(across(everything(), replace_na, 0)) %>%
   filter(plate_position %in% punk_seqs$plate_position) %>%
   tibble::column_to_rownames(var = "plate_position")
 
-#matrix with unifrac distances for each coral sample  
-unidist_punk <- GUniFrac(seqs_wide, tree_punk)   #GUniFrac calculates all the distances 
-unifracs_punk <- unidist_punk$unifracs
-du_punk<- unifracs_punk[, , "d_0.5"]  #can change Unifrac type.- go to GUniFrac in Help section   
+punk.community.matrix = seqs_wide
+save(punk.community.matrix, file = "Data/punk.community.matrix.RData")
 
+# comput unifrac distances  
+k_unidist_punk <- GUniFrac(seqs_wide, k_tree_punk)   #GUniFrac calculates all the distances 
+k_unidist_punk <- k_unidist_punk$unifracs
+align_unidist_punk <- GUniFrac(seqs_wide, align_tree_unk)   #GUniFrac calculates all the distances 
+align_unidist_punk <- align_unidist_punk$unifracs
+
+save(k_unidist_punk, file = "Data/unifracs_punk_kmer.RData")
+save(align_unidist_punk, file = "Data/unifracs_punk_align.RData")
+
+#Choose one for plotting
+#du_punk <- k_unidist_punk[, , "d_UW"]    #unweighted unifrac
+#du_punk <- align_unidist_punk[, , "d_UW"]    #unweighted unifrac
+#du_punk <- k_unidist_punk[, , "d_1"]    # Weighted UniFrac
+#du_punk <- align_unidist_punk[, , "d_1"]    # Weighted UniFrac
+#du_punk <- k_unidist_punk[, , "d_0.5"]    # GUniFrac with alpha 0.5 
+du_punk <- align_unidist_punk[, , "d_0.5"]    # GUniFrac with alpha 0.5 
+
+# Cluster the samples
 hclust_samps_punk <- upgma(du_punk)
 
+# Get a sample order from ggtree
 ggtree_samps_punk <- ggtree::ggtree(hclust_samps_punk)$data %>%
   filter(isTip == "TRUE") %>%
   arrange(y)
 
+# Make the sample tree
 tree_punk <- ggtree(hclust_samps_punk, size = 0.2) +
   scale_x_reverse() +
   theme(aspect.ratio = 1.8)
 
+# add in metadata
 tree_punk$data <- left_join(tree_punk$data, full_meta2, by = c("label" = "plate_position")) %>% 
   mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
-tree_tip_punk <- tree_punk + geom_tippoint(aes(color=`GPS south`), size=2, alpha=1) +
+# color the trip tips
+tree_tip_punk <- tree_punk + geom_tippoint(aes(color=-`GPS south`), size=2, alpha=1) +
+    geom_tiplab(align=TRUE, size=1, linesize=.3, hjust = -3) +
   scale_color_viridis_c(option = "magma")
-ggsave("punk_tree.png") #dpi =300, width=110, height=180, units = "mm")
 
-tree_tip_punk
-
+# Start plotting the composition data
 plot_df_punk <- all_data %>%
   filter(str_detect(Species, "Unknown")) %>%
   mutate(plate_position = fct_relevel(plate_position, ggtree_samps_punk$label))
 
 theme_set(theme_bw())
-
 
 bar_uni_punk <- 
 ggplot(plot_df_punk, aes(value_rel, plate_position)) +
@@ -393,6 +442,8 @@ bar_uni_punk + tree_tip_punk
 ```
 
 # Acropora humilis tree 
+
+OBSERVATIONS: Regardless of the tree-type and unifrac combination, there is one major branch point in the tree. While this does not seem to be consistent with lat/lon, the unweighted approach seems very good at placing samples from the same lat/lons together. 
 ```{r}
 #filtering seqs for acropora only 
 acro_seqs <- seqs_long %>% filter(str_detect(Species, "A"))
@@ -404,61 +455,93 @@ fasta_acro <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T0244
   deframe() %>%
   as_dna()
 
-#calculating kdistance for tree
+# Unifracs
+
+## With a kmer-based tree
+
 kdist_acro <- fasta_acro %>%
   dna_to_DNAbin() %>%
-  kdistance(k = 5, residues = "DNA", method = "edgar") %>%
+  kdistance(k = 7, residues = "DNA", method = "edgar") %>%
   as.matrix()
 
-tree_acro <- kdist_acro %>% phangorn::upgma()
+k_tree_acro <- kdist_acro %>% phangorn::upgma()
 
-#wide to long format
+## With an alignment-based tree
+
+fasta_dss <- fasta_acro %>%
+  dna_to_DNAStringset()
+aligned <- AlignSeqs(fasta_dss, verbose = TRUE)
+writeXStringSet(aligned, filepath = "Data/acro_aligned.fasta")
+aligned <- read.alignment("Data/acro_aligned.fasta", format = "fasta")
+dist.al <- dist.alignment(aligned, gap = TRUE)
+dist.al <- (as.matrix(dist.alignment(aligned, matrix = "identity" )))^2
+
+align_tree_acro <- phangorn::upgma(dist.al)
+
+# Get the community matrix
+
 seqs_wide <- seqs_long %>%
   dplyr::select(plate_position, name, value) %>%
   filter(!str_detect(name, "A|G")) %>%
   filter(name %in% acro_seqs$name) %>%
-  pivot_wider(names_from = name, values_from = value) %>%
-  mutate(across(where(is.numeric), replace_na, 0)) %>%
+  pivot_wider(names_from = name, values_from = value, values_fill = 0) %>%
+  #mutate(across(everything(), replace_na, 0)) %>%
   filter(plate_position %in% acro_seqs$plate_position) %>%
   tibble::column_to_rownames(var = "plate_position")
 
-#matrix with unifrac distances for each coral sample  
-unidist_acro <- GUniFrac(seqs_wide, tree_acro)   #GUniFrac calculates all the distances 
-unifracs_acro <- unidist_acro$unifracs
-du_acro <- unifracs_acro[, , "d_0.5"]  #can change Unifrac type.- go to GUniFrac in Help section  
+acro.community.matrix = seqs_wide
+save(acro.community.matrix, file = "Data/acro.community.matrix.RData")
 
+# comput unifrac distances  
+k_unidist_acro <- GUniFrac(seqs_wide, k_tree_acro)   #GUniFrac calculates all the distances 
+k_unidist_acro <- k_unidist_acro$unifracs
+align_unidist_acro <- GUniFrac(seqs_wide, align_tree_acro)   #GUniFrac calculates all the distances 
+align_unidist_acro <- align_unidist_acro$unifracs
+
+save(k_unidist_acro, file = "Data/unifracs_acro_kmer.RData")
+save(align_unidist_acro, file = "Data/unifracs_acro_align.RData")
+
+#Choose one for plotting
+#du_acro <- k_unidist_acro[, , "d_UW"]    #unweighted unifrac
+#du_acro <- align_unidist_acro[, , "d_UW"]    #unweighted unifrac
+#du_acro <- k_unidist_acro[, , "d_1"]    # Weighted UniFrac
+#du_acro <- align_unidist_acro[, , "d_1"]    # Weighted UniFrac
+#du_acro <- k_unidist_acro[, , "d_0.5"]    # GUniFrac with alpha 0.5 
+du_acro <- align_unidist_acro[, , "d_0.5"]    # GUniFrac with alpha 0.5 
+
+# Cluster the samples
 hclust_samps_acro <- upgma(du_acro)
 
-ggtree_samps <- ggtree::ggtree(hclust_samps_acro)$data %>%
+# Get a sample order from ggtree
+ggtree_samps_acro <- ggtree::ggtree(hclust_samps_acro)$data %>%
   filter(isTip == "TRUE") %>%
   arrange(y)
 
+# Make the sample tree
 tree_acro <- ggtree(hclust_samps_acro, size = 0.2) +
   scale_x_reverse() +
   theme(aspect.ratio = 1.8)
 
+# add in metadata
 tree_acro$data <- left_join(tree_acro$data, full_meta2, by = c("label" = "plate_position")) %>% 
-      mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
+  mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
-
+# color the trip tips
 tree_tip_acro <- tree_acro + geom_tippoint(aes(color=-`GPS south`), size=2, alpha=1) +
+    geom_tiplab(align=TRUE, size=1, linesize=.3, hjust = -3) +
   scale_color_viridis_c(option = "magma")
-ggsave("pacro_tree.png") #dpi =300, width=110, height=180, units = "mm")
 
-
-tree_tip_acro
-
+# Start plotting the composition data
 plot_df_acro <- all_data %>%
   filter(str_detect(Species, "Ahumilis")) %>%
-  mutate(plate_position = fct_relevel(plate_position, ggtree_samps$label))
+  mutate(plate_position = fct_relevel(plate_position, ggtree_samps_acro$label))
 
 theme_set(theme_bw())
 
-#plotting the type profiles (left) and sequences per profile (right)
 bar_uni_acro <- 
 ggplot(plot_df_acro, aes(value_rel, plate_position)) +
 geom_bar(stat = "identity", aes(fill = name, colour = name)) +
-theme(aspect.ratio = 0.5, legend.position = "none", axis.text.y=element_blank(), axis.ticks.y = element_blank(),
+theme(aspect.ratio = 0.7, legend.position = "none", axis.text.y=element_blank(), axis.ticks.y = element_blank(),
       axis.text.x=element_blank(), axis.ticks.x = element_blank(),
       axis.title.x = element_blank(), axis.title.y = element_blank(),
       panel.border = element_blank(), panel.grid.major = element_blank(),
@@ -472,15 +555,8 @@ guides(fill=guide_legend(ncol=3))
 
 bar_uni_acro + tree_tip_acro
 ```
-
-
 #Saving objects for script 3_PCA
 ```{r}
-save(du_poci, file = "Data/du_poci.Rdata")
-save(du_acro, file = "Data/du_acro.Rdata")
-save(du_pver, file = "Data/du_pver.Rdata")
-save(du_pmea, file = "Data/du_pmea.Rdata")
-save(du_punk, file = "Data/du_punk.Rdata")
 save(full_meta, file = "Data/full_meta.Rdata")
 save(full_meta2, file = "Data/full_meta2.Rdata")
 ```
