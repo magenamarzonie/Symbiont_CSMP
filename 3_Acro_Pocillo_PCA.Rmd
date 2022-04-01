@@ -41,109 +41,33 @@ load("Data/full_meta.RData")
 load("Data/full_meta2.RData")
 ```
 
-#Merge enviro and symbiont metadata 
+#Data Wrangle 
 ```{r}
-#change site names so they will merge with full_meta 
+#Combining symbiont unifrac distances and environmental metadata
 full_meta2 = full_meta2 %>% 
   mutate(DHW = as.numeric(DHW),
          Reef = as.factor(Reef.x),
          Site = as.factor(Site),
          Exposure = as.factor(Exposure),
          catBleaching = as.factor(catBleaching),
-         Aspect = as.factor(Aspect),
-         Morphotype = as.factor(Morphotype))
+         Aspect = as.factor(Aspect))
 ```
 
-# ----------------------------------------------------------
-Permanova/ PCoA: **Pocillopora all species**
-# ----------------------------------------------------------
 
-##a. Permanova / Betadisper 
+
 ```{r}
-#importing unifrac distances for analysis 
-dist_poci <- as.dist(du_poci, diag = FALSE)
+car::vif(lm(1:nrow(adonis_meta_pver) ~ GPS_S  + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_pver))
 
-dim(du_poci)
+car::vif(lm(1:nrow(adonis_meta_pmea) ~ GPS_S  + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_pmea))
 
-# Sanity check
-full_meta2$plate_position %in% rownames(du_poci)
+car::vif(lm(1:nrow(adonis_meta_punk) ~ GPS_S + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_punk))
 
-adonis_meta_poci <- full_meta2 %>%
-  dplyr::select(plate_position, Reef, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4) %>%
-  filter(plate_position %in% rownames(du_poci)) %>%
-  tibble::column_to_rownames(var = "plate_position") %>%
-  mutate(depth_cat = round(Depth)) %>%
-  mutate(sample_name = rownames(.))
+car::vif(lm(1:nrow(adonis_meta_acro) ~ GPS_S + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_acro))
 
-res <- adonis(dist_poci ~ Reef, data = adonis_meta_poci)
-
-test_poci <- betadisper(as.dist(du_poci), adonis_meta_poci$Reef)
-plot(test_poci)
-anova(test_poci)
-```
-
-## 3b. PCoA plot
-```{r}
-pcoares_poci <- pcoa(dist_poci)
-            
-pcoa_df_poci <- as.data.frame(pcoares_poci$vectors) %>%
-  rownames_to_column(var = "plate_position") %>%
-  dplyr::select(plate_position, Axis.1:Axis.5) %>% 
-  left_join(., adonis_meta_poci %>% rownames_to_column(var = "plate_position")) %>%
-  mutate(Reef = fct_relevel(Reef, c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
-
-pcoa_poci <- ggplot(pcoa_df_poci, aes(Axis.1, Axis.2)) +
-  geom_point(aes(shape = Species, fill = Species), size = 2, alpha = 0.8) +
-  facet_wrap(~Reef) +
-  ggalt::geom_encircle(aes(group = Reef, colour = Reef), s_shape=1, expand=0, alpha = 0.5) +
-  scale_shape_manual(values = c(21,22,23)) +
-  scale_color_d3(palette = "category20") +
-  theme_classic()
-
-ggsave("pcoa_poci.png", dpi =300, width=185, height=110, units = "mm")
+#variability in SST (varSST) has collinearity with GPS_S (VIF score > 3) for most of the species (p. mea and p. unk), so will be removed from the adonis model)
 ```
 
 
-#3c idea to plot the clustering, and colour by a factor **Pocillopora all species**
-```{r}
-library(reshape2)
-k_poci <- kmeans(dist_poci, centers = 3)
-
-kdf_poci <- enframe(k_poci$cluster) %>%
-  select(name, k = value)
-
-du_k_poci <- reshape2::melt(du_poci) %>%
-        select(from = Var1, to = Var2, value) %>% 
-          left_join(., kdf_poci, by = c("from" = "name")) %>%
-            left_join(., kdf_poci, by = c("to" = "name"))
-
-du_1_poci <- du_k_poci %>%
-  filter(k.x == 2 & k.y == 2) %>%
-  acast(from ~ to)
-
-adonis_meta_poci <- full_meta2 %>%
-  select(plate_position, Site, catBleaching, Species, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, Reef, DHW3, DHW4, DHW6, DHW9) %>%
-  filter(plate_position %in% rownames(du_1_poci)) %>%
-  tibble::column_to_rownames(var = "plate_position") %>%
-  mutate(depth_cat = round(Depth))
-
-adonis(du_1_poci ~ Reef + Species, data = adonis_meta_poci)
-
-pcoares_poci <- pcoa(du_1_poci)
-
-pcoa_df_poci <- as.data.frame(pcoares_poci$vectors) %>%
-  rownames_to_column(var = "plate_position") %>%
-  left_join(., adonis_meta_poci %>% rownames_to_column(var = "plate_position"))
-
-ggplot(pcoa_df_poci, aes(Axis.1, Axis.2)) +
-  geom_point(aes(fill = Species), shape = 21, size = 3, alpha = 0.8) #+
- # scale_fill_viridis_c()
-```
-
-
-# ----------------------------------------------------------
-Different UniFrac distances impact on dbRDA results
-# ----------------------------------------------------------
 
 # ----------------------------------------------------------
 Permanova/ PCoA: **Pocillopora verrucosa**
@@ -152,121 +76,96 @@ Permanova/ PCoA: **Pocillopora verrucosa**
 ## a Permanova/ Betadisper 
 ```{r}
 #importing unifrac distances for analysis 
-
-du_pver_0.5 <- unifracs_pver[, , "d_0.5"]
-du_pver_w <- unifracs_pver[, , "d_1"]  #can change Unifrac type.- go to GUniFrac in Help section   
-du_pver_uw <- unifracs_pver[, , "d_0"] 
-
-dist_pver_0.5 <- as.dist(du_pver_0.5, diag = FALSE)
-dist_pver_w <- as.dist(du_pver_w, diag = FALSE)
-dist_pver_uw <- as.dist(du_pver_uw, diag = FALSE)
-
-#all the same dimensions
-dim(du_pver_0.5)
-dim(du_pver_w)
-dim(du_pver_uw)
+dist_pver <- as.dist(du_pver, diag = FALSE)
+dim(du_pver)
 
 adonis_meta_pver <- full_meta2 %>%
-  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9) %>%
+  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9, varSST) %>%
   filter(plate_position %in% rownames(du_pver)) %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
 
-ord_pver_0.5 <- dbrda(dist_pver_0.5 ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3  + DHW6, data = adonis_meta_pver, permutations = 9999)
-anova(ord_pver_0.5, by = 'margin')   
+#dbRDA with all factors 
+ord_pver <- dbrda(dist_pver ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_pver, permutations = 9999)
+anova(ord_pver, by = 'margin')   
 
-ord_pver_w <- dbrda(dist_pver_w ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6, data = adonis_meta_pver, permutations = 9999)
-anova(ord_pver_w, by = 'margin')   
+#ord_pver_cap <- capscale(dist_pver ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6 + varSST, data = adonis_meta_pver, permutations = 9999)
+#anova(ord_pver_cap, by = 'margin')   
 
-ord_pver_uw <- dbrda(dist_pver_uw ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6, data = adonis_meta_pver, permutations = 9999)
-anova(ord_pver_uw, by = 'margin')   
-
-
-pver_0.5 <- plot(ord_pver0.5)
-pver_w <- plot(ord_pver_w)
-pver_uw <- plot(ord_pver_uw)
-
+#ordination plot 
+ordplot_pver <- plot(ord_pver)
 ```
 
 
+# ----------------------------------------------------------
+Permanova/ PCoA: **Pocillopora meandrina**
+# ----------------------------------------------------------
+
 ## a Permanova/ Betadisper 
 ```{r}
-#importing unifrac distances for analysis 
-#matrix with unifrac distances for each coral sample  
-
-du_pmea_0.5 <- unifracs_pmea[, , "d_0.5"]
-du_pmea_w <- unifracs_pmea[, , "d_1"]  #can change Unifrac type.- go to GUniFrac in Help section   
-du_pmea_uw <- unifracs_pmea[, , "d_0"] 
-
-dist_pmea_0.5 <- as.dist(du_pmea_0.5, diag = FALSE)
-dist_pmea_w <- as.dist(du_pmea_w, diag = FALSE)
-dist_pmea_uw <- as.dist(du_pmea_uw, diag = FALSE)
-
-#all the same dimensions
-dim(du_pmea_0.5)
-dim(du_pmea_w)
-dim(du_pmea_uw)
+dist_pmea <- as.dist(du_pmea, diag = FALSE)
+dim(du_pmea)
 
 adonis_meta_pmea <- full_meta2 %>%
-  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9) %>%
+  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9, varSST) %>%
   filter(plate_position %in% rownames(du_pmea)) %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
 
-ord_pmea_0.5 <- dbrda(dist_pmea_0.5 ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3  + DHW6, data = adonis_meta_pmea, permutations = 9999)
-anova(ord_pmea_0.5, by = 'margin')   
+#dbRDA with all factors 
+ord_pmea <- dbrda(dist_pmea ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_pmea, permutations = 9999)
+anova(ord_pmea, by = 'margin')   
 
-ord_pmea_w <- dbrda(dist_pmea_w ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6, data = adonis_meta_pmea, permutations = 9999)
-anova(ord_pmea_w, by = 'margin')   
-
-ord_pmea_uw <- dbrda(dist_pmea_uw ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6, data = adonis_meta_pmea, permutations = 9999)
-anova(ord_pmea_uw, by = 'margin')   
-
-
-pmea_0.5 <- plot(ord_pmea_0.5)
-pmea_w <- plot(ord_pmea_w)
-pmea_uw <- plot(ord_pmea_uw)
-
+#ordination plot 
+ordplot_pmea <- plot(ord_pmea)
 ```
 
-#acropora humilis 
+
+# ----------------------------------------------------------
+Permanova/ PCoA: **Pocillopora unknown**
+# ----------------------------------------------------------
+
+
 ```{r}
-#importing unifrac distances for analysis 
+dist_punk <- as.dist(du_punk, diag = FALSE)
+dim(du_punk)
 
-du_acro_0.5 <- unifracs_acro[, , "d_0.5"]
-du_acro_w <- unifracs_acro[, , "d_1"]  #can change Unifrac type.- go to GUniFrac in Help section   
-du_acro_uw <- unifracs_acro[, , "d_0"] 
-
-dist_acro_0.5 <- as.dist(du_acro_0.5, diag = FALSE)
-dist_pver_w <- as.dist(du_pver_w, diag = FALSE)
-dist_pver_uw <- as.dist(du_pver_uw, diag = FALSE)
-
-#all the same dimensions
-dim(du_pver_0.5)
-dim(du_pver_w)
-dim(du_pver_uw)
-
-adonis_meta_pver <- full_meta2 %>%
-  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9) %>%
-  filter(plate_position %in% rownames(du_pver)) %>%
+adonis_meta_punk <- full_meta2 %>%
+  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9, varSST) %>%
+  filter(plate_position %in% rownames(du_punk)) %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
 
-ord_pver_0.5 <- dbrda(dist_pver_0.5 ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3  + DHW6, data = adonis_meta_pver, permutations = 9999)
-anova(ord_pver_0.5, by = 'margin')   
+#dbRDA with all factors 
+ord_punk <- dbrda(dist_punk ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_punk, permutations = 9999)
+anova(ord_punk, by = 'margin')   
 
-ord_pver_w <- dbrda(dist_pver_w ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6, data = adonis_meta_pver, permutations = 9999)
-anova(ord_pver_w, by = 'margin')   
-
-ord_pver_uw <- dbrda(dist_pver_uw ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6, data = adonis_meta_pver, permutations = 9999)
-anova(ord_pver_uw, by = 'margin')   
-
-
-pver_0.5 <- plot(ord_pver0.5)
-pver_w <- plot(ord_pver_w)
-pver_uw <- plot(ord_pver_uw)
-
+#ordination plot 
+ordplot_punk <- plot(ord_punk)
 ```
+
+# ----------------------------------------------------------
+Permanova/ PCoA: **Acropora humilis**
+# ----------------------------------------------------------
+
+```{r}
+dist_acro <- as.dist(du_acro, diag = FALSE)
+dim(du_acro)
+
+adonis_meta_acro <- full_meta2 %>%
+  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9, varSST) %>%
+  filter(plate_position %in% rownames(du_acro)) %>%
+  tibble::column_to_rownames(var = "plate_position") %>%
+  mutate(sample_name = rownames(.))
+
+#dbRDA with all factors 
+ord_acro <- dbrda(dist_acro ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_acro, permutations = 9999)
+anova(ord_acro, by = 'margin')   
+
+#ordination plot 
+ordplot_acro <- plot(ord_acro)
+```
+
 
 
 
@@ -698,7 +597,6 @@ anova(test_pmea)
 
 
 
-
 # ----------------------------------------------------------
 3.2a Permanova/ PCoA: Acropora 
 # ----------------------------------------------------------
@@ -745,6 +643,95 @@ ggplot(pcoa_df_acro, aes(Axis.1, Axis.2)) +
   theme_classic()
 
 ggsave("AcroPCA.png", height = 7, width = 12)
+```
+
+
+
+
+
+
+**Extras ** Saving for now but might be able to delete 
+
+##a. Permanova / Betadisper 
+```{r}
+#importing unifrac distances for analysis 
+dist_poci <- as.dist(du_poci, diag = FALSE)
+
+dim(du_poci)
+
+# Sanity check
+full_meta2$plate_position %in% rownames(du_poci)
+
+adonis_meta_poci <- full_meta2 %>%
+  dplyr::select(plate_position, Reef, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4) %>%
+  filter(plate_position %in% rownames(du_poci)) %>%
+  tibble::column_to_rownames(var = "plate_position") %>%
+  mutate(depth_cat = round(Depth)) %>%
+  mutate(sample_name = rownames(.))
+
+res <- adonis(dist_poci ~ Reef, data = adonis_meta_poci)
+
+test_poci <- betadisper(as.dist(du_poci), adonis_meta_poci$Reef)
+plot(test_poci)
+anova(test_poci)
+```
+
+## 3b. PCoA plot
+```{r}
+pcoares_poci <- pcoa(dist_poci)
+            
+pcoa_df_poci <- as.data.frame(pcoares_poci$vectors) %>%
+  rownames_to_column(var = "plate_position") %>%
+  dplyr::select(plate_position, Axis.1:Axis.5) %>% 
+  left_join(., adonis_meta_poci %>% rownames_to_column(var = "plate_position")) %>%
+  mutate(Reef = fct_relevel(Reef, c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
+
+pcoa_poci <- ggplot(pcoa_df_poci, aes(Axis.1, Axis.2)) +
+  geom_point(aes(shape = Species, fill = Species), size = 2, alpha = 0.8) +
+  facet_wrap(~Reef) +
+  ggalt::geom_encircle(aes(group = Reef, colour = Reef), s_shape=1, expand=0, alpha = 0.5) +
+  scale_shape_manual(values = c(21,22,23)) +
+  scale_color_d3(palette = "category20") +
+  theme_classic()
+
+ggsave("pcoa_poci.png", dpi =300, width=185, height=110, units = "mm")
+```
+
+
+#3c idea to plot the clustering, and colour by a factor **Pocillopora all species**
+```{r}
+library(reshape2)
+k_poci <- kmeans(dist_poci, centers = 3)
+
+kdf_poci <- enframe(k_poci$cluster) %>%
+  select(name, k = value)
+
+du_k_poci <- reshape2::melt(du_poci) %>%
+        select(from = Var1, to = Var2, value) %>% 
+          left_join(., kdf_poci, by = c("from" = "name")) %>%
+            left_join(., kdf_poci, by = c("to" = "name"))
+
+du_1_poci <- du_k_poci %>%
+  filter(k.x == 2 & k.y == 2) %>%
+  acast(from ~ to)
+
+adonis_meta_poci <- full_meta2 %>%
+  select(plate_position, Site, catBleaching, Species, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, Reef, DHW3, DHW4, DHW6, DHW9) %>%
+  filter(plate_position %in% rownames(du_1_poci)) %>%
+  tibble::column_to_rownames(var = "plate_position") %>%
+  mutate(depth_cat = round(Depth))
+
+adonis(du_1_poci ~ Reef + Species, data = adonis_meta_poci)
+
+pcoares_poci <- pcoa(du_1_poci)
+
+pcoa_df_poci <- as.data.frame(pcoares_poci$vectors) %>%
+  rownames_to_column(var = "plate_position") %>%
+  left_join(., adonis_meta_poci %>% rownames_to_column(var = "plate_position"))
+
+ggplot(pcoa_df_poci, aes(Axis.1, Axis.2)) +
+  geom_point(aes(fill = Species), shape = 21, size = 3, alpha = 0.8) #+
+ # scale_fill_viridis_c()
 ```
 
 

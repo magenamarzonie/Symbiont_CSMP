@@ -273,12 +273,12 @@ save(k_unidist_pmea, file = "Data/unifracs_pmea_kmer.RData")
 save(align_unidist_pmea, file = "Data/unifracs_pmea_align.RData")
 
 #Choose one for plotting
-du_pmea <- k_unidist_pmea[, , "d_UW"]    #unweighted unifrac
+#du_pmea <- k_unidist_pmea[, , "d_UW"]    #unweighted unifrac
 #du_pmea <- align_unidist_pmea[, , "d_UW"]    #unweighted unifrac
 #du_pmea <- k_unidist_pmea[, , "d_1"]    # Weighted UniFrac
 #du_pmea <- align_unidist_pmea[, , "d_1"]    # Weighted UniFrac
 #du_pmea <- k_unidist_pmea[, , "d_0.5"]    # GUniFrac with alpha 0.5 
-#du_pmea <- align_unidist_pmea[, , "d_0.5"]    # GUniFrac with alpha 0.5 
+du_pmea <- align_unidist_pmea[, , "d_0.5"]    # GUniFrac with alpha 0.5 
 
 # Cluster the samples
 hclust_samps_pmea <- upgma(du_pmea)
@@ -559,5 +559,9 @@ bar_uni_acro + tree_tip_acro
 ```{r}
 save(full_meta, file = "Data/full_meta.Rdata")
 save(full_meta2, file = "Data/full_meta2.Rdata")
+save(du_pver, file = "Data/du_pver.Rdata")
+save(du_pmea, file = "Data/du_pmea.Rdata")
+save(du_punk, file = "Data/du_punk.Rdata")
+save(du_acro, file = "Data/du_acro.Rdata")
 ```
 
