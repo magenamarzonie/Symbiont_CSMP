@@ -68,7 +68,6 @@ car::vif(lm(1:nrow(adonis_meta_acro) ~ GPS_S + Aspect + Exposure + catBleaching 
 ```
 
 
-
 # ----------------------------------------------------------
 Permanova/ PCoA: **Pocillopora verrucosa**
 # ----------------------------------------------------------
@@ -91,6 +90,13 @@ anova(ord_pver, by = 'margin')
 
 #ord_pver_cap <- capscale(dist_pver ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6 + varSST, data = adonis_meta_pver, permutations = 9999)
 #anova(ord_pver_cap, by = 'margin')   
+
+(fit <- envfit(ord_pver, adonis_meta_pver %>% select(GPS_S + DHW3 + catBleaching + Depth), perm = 999))
+
+scores(fit, "vectors")
+plot(res.cap)
+plot(fit)
+plot(fit, p.max = 0.05, col = "red")
 
 #ordination plot 
 ordplot_pver <- plot(ord_pver)
@@ -165,8 +171,6 @@ anova(ord_acro, by = 'margin')
 #ordination plot 
 ordplot_acro <- plot(ord_acro)
 ```
-
-
 
 
 
@@ -252,61 +256,6 @@ anova(test_pver)
 ```
 
 
-```{r}
-dist_pmea <- as.dist(du_pmea, diag = FALSE)
-
-dim(du_pmea)
-
-adonis_meta_pmea <- full_meta2 %>%
-  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9) %>%
-  filter(plate_position %in% rownames(du_pmea)) %>%
-  tibble::column_to_rownames(var = "plate_position") %>%
-  mutate(sample_name = rownames(.))
-
-#dbrda 
-ord <- dbrda(dist_pmea ~ Exposure + Depth + DHW3 + GPS_S, data = adonis_meta_pmea, permutations = 9999)
-anova(ord, by = 'margin')    #indicates the marginal effect after controlling for the other variables. 
-anova(ord, by = 'terms')     #analyses terms added sequentially. You get different significance because the terms are correlated, so which one goes into the model first determines how much variation is left to be explained by the second, or third... 
-
-#capscale function for comparison 
-ord2 <- capscale(dist_pmea ~  DHW3 + GPS_S + Exposure + Depth, data = adonis_meta_pmea, permutations = 9999)
-anova(ord2, by = 'margin')
-
-#Depth is sometimes significant, depending on the order. Exposure and Aspect never significant. 
-
-
-car::vif(lm(1:nrow(adonis_meta_pmea) ~ GPS_S + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_pmea))
-```
-
-
-```{r}
-dist_acro <- as.dist(du_acro, diag = FALSE)
-
-dim(du_acro)
-
-adonis_meta_acro <- full_meta2 %>%
-  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9) %>%
-  filter(plate_position %in% rownames(du_acro)) %>%
-  tibble::column_to_rownames(var = "plate_position") %>%
-  mutate(sample_name = rownames(.))
-
-#dbrda 
-ord <- dbrda(dist_acro ~ Exposure + Depth + DHW3 + GPS_S, data = adonis_meta_acro, permutations = 9999)
-anova(ord, by = 'margin')    #indicates the marginal effect after controlling for the other variables. 
-anova(ord, by = 'terms')     #analyses terms added sequentially. You get different significance because the terms are correlated, so which one goes into the model first determines how much variation is left to be explained by the second, or third... 
-
-#capscale function for comparison 
-ord2 <- capscale(dist_acro ~  DHW3 + GPS_S + Exposure + Depth, data = adonis_meta_acro, permutations = 9999)
-anova(ord2, by = 'margin')
-
-#Depth is sometimes significant, depending on the order. Exposure and Aspect never significant. 
-
-
-car::vif(lm(1:nrow(adonis_meta_acro) ~ GPS_S + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_acro))
-```
-
-
-
 ##b. PCoA 
 ```{r}
 pcoares_pver <- pcoa(dist_pver)
@@ -328,38 +277,6 @@ ggplot(pcoa_df_pver, aes(Axis.1, Axis.2)) +
 ```
 
 
-## a Permanova/ Betadisper 
-```{r}
-#importing unifrac distances for analysis 
-dist_pmea <- as.dist(du_pmea, diag = FALSE)
-
-dim(du_pmea)
-
-# Sanity check
-full_meta2$plate_position %in% rownames(du_pmea)
-
-adonis_meta_pmea <- full_meta2 %>%
-  dplyr::select(plate_position, Sector, Reef, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9) %>%
-  filter(plate_position %in% rownames(du_pmea)) %>%
-  tibble::column_to_rownames(var = "plate_position") %>%
-  mutate(depth_cat = round(Depth)) %>%
-  mutate(sample_name = rownames(.))
-
-res <- adonis(dist_pmea ~ Reef, data = adonis_meta_pmea)
-
-test_pmea <- betadisper(as.dist(du_pmea), adonis_meta_pmea$Reef)
-plot(test_pmea)
-anova(test_pmea)
-```
-
-
-```{r}
-#dbRDA capscale function 
-capscale(as.dist(du_pver) ~ DHW3, data = adonis_meta_pver)
-```
-
-
-
 ```{r}
 #the order of sequential terms: statistical significance calculated based on based on permuting distance matrix. Permutation will lead to power loss in testing effect of a covariate of interest while adjusting for other coveriates (confounders). Power loss is more evident when the confounders effects are strong. 
 
@@ -368,14 +285,6 @@ capscale(as.dist(du_pver) ~ DHW3, data = adonis_meta_pver)
 adonis3(as.dist(du_pmea) ~ DHW6, data = adonis_meta_pmea)
 adonis3(as.dist(du_pmea) ~ GPS_S + GPS_E + DHW3 + DHW6 , data = adonis_meta_pmea)
 ```
-
-
-
-#now P. unknown adonis
-```{r}
-
-```
-
 
 
 
