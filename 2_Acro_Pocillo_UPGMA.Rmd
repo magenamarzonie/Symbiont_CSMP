@@ -330,8 +330,6 @@ bar_uni_pmea + tree_tip_pmea
 # Fig 2C Poci unknown Phylogenetic Tree
 
 OBSERVATIONS: as for meandrina, the unknown pocillo has a north/south split. This is even more consistent here than for meandrina.
-
-
 ```{r}
 #read in file 
 fasta_punk <- read_fasta_df("20210612_marzonie/186_20211115_03_DBV_20211116T024440.seqs.fasta") %>%
