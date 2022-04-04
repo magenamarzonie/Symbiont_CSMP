@@ -123,18 +123,6 @@ kdist_pver <- fasta_pver %>%
 
 k_tree_pver <- kdist_pver %>% phangorn::upgma()
 
-## With an alignment-based tree
-
-fasta_dss <- fasta_pver %>%
-  dna_to_DNAStringset()
-aligned <- AlignSeqs(fasta_dss, verbose = TRUE)
-writeXStringSet(aligned, filepath = "Data/verrucosa_aligned.fasta")
-aligned <- read.alignment("Data/verrucosa_aligned.fasta", format = "fasta")
-dist.al <- dist.alignment(aligned, gap = TRUE)
-dist.al <- (as.matrix(dist.alignment(aligned, matrix = "identity" )))^2
-
-align_tree_pver <- phangorn::upgma(dist.al)
-
 # Get the community matrix
 
 seqs_wide <- seqs_long %>%
@@ -152,19 +140,10 @@ save(pver.community.matrix, file = "Data/pver.community.matrix.RData")
 # comput unifrac distances  
 k_unidist_pver <- GUniFrac(seqs_wide, k_tree_pver)   #GUniFrac calculates all the distances 
 k_unidist_pver <- k_unidist_pver$unifracs
-align_unidist_pver <- GUniFrac(seqs_wide, align_tree_pver)   #GUniFrac calculates all the distances 
-align_unidist_pver <- align_unidist_pver$unifracs
 
 save(k_unidist_pver, file = "Data/unifracs_pver_kmer.RData")
-save(align_unidist_pver, file = "Data/unifracs_pver_align.RData")
 
-#Choose one for plotting
-#du_pver <- k_unidist_pver[, , "d_UW"]    #unweighted unifrac
-#du_pver <- align_unidist_pver[, , "d_UW"]    #unweighted unifrac
-#du_pver <- k_unidist_pver[, , "d_1"]    # Weighted UniFrac
-#du_pver <- align_unidist_pver[, , "d_1"]    # Weighted UniFrac
-#du_pver <- k_unidist_pver[, , "d_0.5"]    # GUniFrac with alpha 0.5 
-du_pver <- align_unidist_pver[, , "d_0.5"]    # GUniFrac with alpha 0.5 
+du_pver <- k_unidist_pver[, , "d_0.5"]    # GUniFrac with alpha 0.5 
 
 # Cluster the samples
 hclust_samps_pver <- upgma(du_pver)
@@ -236,18 +215,6 @@ kdist_pmea <- fasta_pmea %>%
 
 k_tree_pmea <- kdist_pmea %>% phangorn::upgma()
 
-## With an alignment-based tree
-
-fasta_dss <- fasta_pmea %>%
-  dna_to_DNAStringset()
-aligned <- AlignSeqs(fasta_dss, verbose = TRUE)
-writeXStringSet(aligned, filepath = "Data/meandrina_aligned.fasta")
-aligned <- read.alignment("Data/meandrina_aligned.fasta", format = "fasta")
-dist.al <- dist.alignment(aligned, gap = TRUE)
-dist.al <- (as.matrix(dist.alignment(aligned, matrix = "identity" )))^2
-
-align_tree_mea <- phangorn::upgma(dist.al)
-
 # Get the community matrix
 
 seqs_wide <- seqs_long %>%
@@ -265,20 +232,11 @@ save(pmea.community.matrix, file = "Data/pmea.community.matrix.RData")
 # comput unifrac distances  
 k_unidist_pmea <- GUniFrac(seqs_wide, k_tree_pmea)   #GUniFrac calculates all the distances 
 k_unidist_pmea <- k_unidist_pmea$unifracs
-align_unidist_pmea <- GUniFrac(seqs_wide, align_tree_mea)   #GUniFrac calculates all the distances 
-align_unidist_pmea <- align_unidist_pmea$unifracs
 
 # save unifracs for later use
 save(k_unidist_pmea, file = "Data/unifracs_pmea_kmer.RData")
-save(align_unidist_pmea, file = "Data/unifracs_pmea_align.RData")
 
-#Choose one for plotting
-#du_pmea <- k_unidist_pmea[, , "d_UW"]    #unweighted unifrac
-#du_pmea <- align_unidist_pmea[, , "d_UW"]    #unweighted unifrac
-#du_pmea <- k_unidist_pmea[, , "d_1"]    # Weighted UniFrac
-#du_pmea <- align_unidist_pmea[, , "d_1"]    # Weighted UniFrac
-#du_pmea <- k_unidist_pmea[, , "d_0.5"]    # GUniFrac with alpha 0.5 
-du_pmea <- align_unidist_pmea[, , "d_0.5"]    # GUniFrac with alpha 0.5 
+du_pmea <- k_unidist_pmea[, , "d_0.5"]    # GUniFrac with alpha 0.5 
 
 # Cluster the samples
 hclust_samps_pmea <- upgma(du_pmea)
@@ -351,18 +309,6 @@ kdist_punk <- fasta_punk %>%
 
 k_tree_punk <- kdist_punk %>% phangorn::upgma()
 
-## With an alignment-based tree
-
-fasta_dss <- fasta_punk %>%
-  dna_to_DNAStringset()
-aligned <- AlignSeqs(fasta_dss, verbose = TRUE)
-writeXStringSet(aligned, filepath = "Data/punkown_aligned.fasta")
-aligned <- read.alignment("Data/punkown_aligned.fasta", format = "fasta")
-dist.al <- dist.alignment(aligned, gap = TRUE)
-dist.al <- (as.matrix(dist.alignment(aligned, matrix = "identity" )))^2
-
-align_tree_unk <- phangorn::upgma(dist.al)
-
 # Get the community matrix
 
 seqs_wide <- seqs_long %>%
@@ -380,19 +326,10 @@ save(punk.community.matrix, file = "Data/punk.community.matrix.RData")
 # comput unifrac distances  
 k_unidist_punk <- GUniFrac(seqs_wide, k_tree_punk)   #GUniFrac calculates all the distances 
 k_unidist_punk <- k_unidist_punk$unifracs
-align_unidist_punk <- GUniFrac(seqs_wide, align_tree_unk)   #GUniFrac calculates all the distances 
-align_unidist_punk <- align_unidist_punk$unifracs
 
 save(k_unidist_punk, file = "Data/unifracs_punk_kmer.RData")
-save(align_unidist_punk, file = "Data/unifracs_punk_align.RData")
 
-#Choose one for plotting
-#du_punk <- k_unidist_punk[, , "d_UW"]    #unweighted unifrac
-#du_punk <- align_unidist_punk[, , "d_UW"]    #unweighted unifrac
-#du_punk <- k_unidist_punk[, , "d_1"]    # Weighted UniFrac
-#du_punk <- align_unidist_punk[, , "d_1"]    # Weighted UniFrac
-#du_punk <- k_unidist_punk[, , "d_0.5"]    # GUniFrac with alpha 0.5 
-du_punk <- align_unidist_punk[, , "d_0.5"]    # GUniFrac with alpha 0.5 
+du_punk <- k_unidist_punk[, , "d_0.5"]    # GUniFrac with alpha 0.5 
 
 # Cluster the samples
 hclust_samps_punk <- upgma(du_punk)
@@ -466,18 +403,6 @@ kdist_acro <- fasta_acro %>%
 
 k_tree_acro <- kdist_acro %>% phangorn::upgma()
 
-## With an alignment-based tree
-
-fasta_dss <- fasta_acro %>%
-  dna_to_DNAStringset()
-aligned <- AlignSeqs(fasta_dss, verbose = TRUE)
-writeXStringSet(aligned, filepath = "Data/acro_aligned.fasta")
-aligned <- read.alignment("Data/acro_aligned.fasta", format = "fasta")
-dist.al <- dist.alignment(aligned, gap = TRUE)
-dist.al <- (as.matrix(dist.alignment(aligned, matrix = "identity" )))^2
-
-align_tree_acro <- phangorn::upgma(dist.al)
-
 # Get the community matrix
 
 seqs_wide <- seqs_long %>%
@@ -495,19 +420,10 @@ save(acro.community.matrix, file = "Data/acro.community.matrix.RData")
 # comput unifrac distances  
 k_unidist_acro <- GUniFrac(seqs_wide, k_tree_acro)   #GUniFrac calculates all the distances 
 k_unidist_acro <- k_unidist_acro$unifracs
-align_unidist_acro <- GUniFrac(seqs_wide, align_tree_acro)   #GUniFrac calculates all the distances 
-align_unidist_acro <- align_unidist_acro$unifracs
 
 save(k_unidist_acro, file = "Data/unifracs_acro_kmer.RData")
-save(align_unidist_acro, file = "Data/unifracs_acro_align.RData")
 
-#Choose one for plotting
-#du_acro <- k_unidist_acro[, , "d_UW"]    #unweighted unifrac
-#du_acro <- align_unidist_acro[, , "d_UW"]    #unweighted unifrac
-#du_acro <- k_unidist_acro[, , "d_1"]    # Weighted UniFrac
-#du_acro <- align_unidist_acro[, , "d_1"]    # Weighted UniFrac
-#du_acro <- k_unidist_acro[, , "d_0.5"]    # GUniFrac with alpha 0.5 
-du_acro <- align_unidist_acro[, , "d_0.5"]    # GUniFrac with alpha 0.5 
+du_acro <- k_unidist_acro[, , "d_0.5"]    # GUniFrac with alpha 0.5 
 
 # Cluster the samples
 hclust_samps_acro <- upgma(du_acro)
