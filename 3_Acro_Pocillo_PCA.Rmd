@@ -53,21 +53,6 @@ full_meta2 = full_meta2 %>%
          Aspect = as.factor(Aspect))
 ```
 
-
-
-```{r}
-car::vif(lm(1:nrow(adonis_meta_pver) ~ GPS_S  + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_pver))
-
-car::vif(lm(1:nrow(adonis_meta_pmea) ~ GPS_S  + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_pmea))
-
-car::vif(lm(1:nrow(adonis_meta_punk) ~ GPS_S + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_punk))
-
-car::vif(lm(1:nrow(adonis_meta_acro) ~ GPS_S + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_acro))
-
-#variability in SST (varSST) has collinearity with GPS_S (VIF score > 3) for most of the species (p. mea and p. unk), so will be removed from the adonis model)
-```
-
-
 # ----------------------------------------------------------
 Permanova/ PCoA: **Pocillopora verrucosa**
 # ----------------------------------------------------------
@@ -84,6 +69,9 @@ adonis_meta_pver <- full_meta2 %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
 
+car::vif(lm(1:nrow(adonis_meta_pver) ~ GPS_S  + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_pver))
+#variability in SST (varSST) has collinearity with GPS_S (VIF score > 3) for most of the species (p. mea and p. unk), so will be removed from the adonis model)
+
 #dbRDA with all factors 
 ord_pver <- dbrda(dist_pver ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_pver, permutations = 9999)
 anova(ord_pver, by = 'margin')   
@@ -91,12 +79,12 @@ anova(ord_pver, by = 'margin')
 #ord_pver_cap <- capscale(dist_pver ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6 + varSST, data = adonis_meta_pver, permutations = 9999)
 #anova(ord_pver_cap, by = 'margin')   
 
-(fit <- envfit(ord_pver, adonis_meta_pver %>% select(GPS_S + DHW3 + catBleaching + Depth), perm = 999))
+#(fit <- envfit(ord_pver, adonis_meta_pver %>% select(GPS_S + DHW3 + catBleaching + Depth), perm = 999))
 
-scores(fit, "vectors")
-plot(res.cap)
-plot(fit)
-plot(fit, p.max = 0.05, col = "red")
+# scores(fit, "vectors")
+# plot(res.cap)
+# plot(fit)
+# plot(fit, p.max = 0.05, col = "red")
 
 #ordination plot 
 ordplot_pver <- plot(ord_pver)
@@ -118,6 +106,8 @@ adonis_meta_pmea <- full_meta2 %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
 
+car::vif(lm(1:nrow(adonis_meta_pmea) ~ GPS_S  + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_pmea))
+
 #dbRDA with all factors 
 ord_pmea <- dbrda(dist_pmea ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_pmea, permutations = 9999)
 anova(ord_pmea, by = 'margin')   
@@ -131,6 +121,7 @@ ordplot_pmea <- plot(ord_pmea)
 Permanova/ PCoA: **Pocillopora unknown**
 # ----------------------------------------------------------
 
+Note: why is this plotting sample names instead of points?
 
 ```{r}
 dist_punk <- as.dist(du_punk, diag = FALSE)
@@ -141,6 +132,8 @@ adonis_meta_punk <- full_meta2 %>%
   filter(plate_position %in% rownames(du_punk)) %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
+
+car::vif(lm(1:nrow(adonis_meta_punk) ~ GPS_S + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_punk))
 
 #dbRDA with all factors 
 ord_punk <- dbrda(dist_punk ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_punk, permutations = 9999)
@@ -154,6 +147,8 @@ ordplot_punk <- plot(ord_punk)
 Permanova/ PCoA: **Acropora humilis**
 # ----------------------------------------------------------
 
+PUT REEF AS A FACTOR HERE (refer to k-mer GUNIFRAC tree)
+
 ```{r}
 dist_acro <- as.dist(du_acro, diag = FALSE)
 dim(du_acro)
@@ -163,6 +158,8 @@ adonis_meta_acro <- full_meta2 %>%
   filter(plate_position %in% rownames(du_acro)) %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
+
+car::vif(lm(1:nrow(adonis_meta_acro) ~ GPS_S + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_acro)) # REEF
 
 #dbRDA with all factors 
 ord_acro <- dbrda(dist_acro ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_acro, permutations = 9999)
