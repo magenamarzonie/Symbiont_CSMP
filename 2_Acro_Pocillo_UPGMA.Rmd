@@ -445,9 +445,9 @@ tree_acro$data <- left_join(tree_acro$data, full_meta2, by = c("label" = "plate_
   mutate(Reef.x = factor(Reef.x, levels = c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
 # color the trip tips
-tree_tip_acro <- tree_acro + geom_tippoint(aes(color=-`GPS south`), size=2, alpha=1) +
-    geom_tiplab(align=TRUE, size=.5, linesize=.3, hjust = -5) +
-  scale_color_viridis(option = "magma")
+tree_tip_acro <- tree_acro + geom_tippoint(aes(color=Reef.x), size=.3, alpha=1) +
+    geom_tiplab(align=TRUE, size=.3, linesize=.3, hjust = -12) +
+  scale_color_viridis_d(option = "turbo")
 
 # Start plotting the composition data
 plot_df_acro <- all_data %>%
@@ -472,7 +472,7 @@ guides(fill=guide_legend(ncol=2))
 #p_bar_uni is the sequences by colour. P_tree_tip is the tree coloured by reef. 
 
 bar_uni_acro + tree_tip_acro
-ggsave("fig/acrotree.png", dpi =800, width=18, height=8, units = "cm")
+ggsave("fig/acrotree.png", dpi =1000, width=18, height=8, units = "cm")
 
 ```
 #Saving objects for script 3_PCA
