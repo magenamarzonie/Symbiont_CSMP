@@ -259,7 +259,7 @@ tree_pmea$data <- left_join(tree_pmea$data, full_meta2, by = c("label" = "plate_
 
 # color the trip tips
 tree_tip_pmea <- tree_pmea + geom_tippoint(aes(color=-`GPS south`), size=2, alpha=1) +
-    geom_tiplab(align=TRUE, size=.5, linesize=.3, hjust = -5) +
+    #geom_tiplab(align=TRUE, size=.5, linesize=.3, hjust = -5) +
   scale_color_viridis_c(option = "magma")
 
 # Start plotting the composition data
@@ -285,6 +285,7 @@ guides(fill=guide_legend(ncol=2))
 #p_bar_uni is the sequences by colour. P_tree_tip is the tree coloured by reef. 
 
 bar_uni_pmea + tree_tip_pmea
+tree_tip_pmea
 ggsave("fig/pmeatree.png", dpi =800, width=18, height=8, units = "cm")
 ```
 
