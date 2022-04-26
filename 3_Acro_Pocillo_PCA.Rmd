@@ -69,11 +69,11 @@ adonis_meta_pver <- full_meta2 %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
 
-car::vif(lm(1:nrow(adonis_meta_pver) ~ GPS_S  + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_pver))
+car::vif(lm(1:nrow(adonis_meta_pver) ~ GPS_S  + DHW3 + catBleaching + Depth, data=adonis_meta_pver))
 #variability in SST (varSST) has collinearity with GPS_S (VIF score > 3) for most of the species (p. mea and p. unk), so will be removed from the adonis model)
 
 #dbRDA with all factors 
-ord_pver <- dbrda(dist_pver ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_pver, permutations = 9999)
+ord_pver <- dbrda(dist_pver ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_pver, permutations = 9999, scale = TRUE)
 anova(ord_pver, by = 'margin')   
 
 #ord_pver_cap <- capscale(dist_pver ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6 + varSST, data = adonis_meta_pver, permutations = 9999)
@@ -88,7 +88,11 @@ anova(ord_pver, by = 'margin')
 
 #ordination plot 
 ordplot_pver <- plot(ord_pver)
+
 ```
+
+
+
 
 
 # ----------------------------------------------------------
@@ -106,10 +110,11 @@ adonis_meta_pmea <- full_meta2 %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
 
-car::vif(lm(1:nrow(adonis_meta_pmea) ~ GPS_S  + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_pmea))
+car::vif(lm(1:nrow(adonis_meta_pmea) ~ GPS_S  + catBleaching + Depth + DHW3, data=adonis_meta_pmea))
+
 
 #dbRDA with all factors 
-ord_pmea <- dbrda(dist_pmea ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_pmea, permutations = 9999)
+ord_pmea <- dbrda(dist_pmea ~ GPS_S + varSST + catBleaching + Depth, data = adonis_meta_pmea, permutations = 9999, scale = TRUE)
 anova(ord_pmea, by = 'margin')   
 
 #ordination plot 
@@ -125,6 +130,7 @@ Note: why is this plotting sample names instead of points?
 
 ```{r}
 dist_punk <- as.dist(du_punk, diag = FALSE)
+
 dim(du_punk)
 
 adonis_meta_punk <- full_meta2 %>%
@@ -133,10 +139,10 @@ adonis_meta_punk <- full_meta2 %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
 
-car::vif(lm(1:nrow(adonis_meta_punk) ~ GPS_S + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_punk))
+car::vif(lm(1:nrow(adonis_meta_punk) ~ GPS_S + DHW3 + catBleaching + Depth, data=adonis_meta_punk))
 
 #dbRDA with all factors 
-ord_punk <- dbrda(dist_punk ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_punk, permutations = 9999)
+ord_punk <- dbrda(dist_punk ~ GPS_S + varSST + catBleaching + Depth, data = adonis_meta_punk, permutations = 9999)
 anova(ord_punk, by = 'margin')   
 
 #ordination plot 
@@ -148,6 +154,7 @@ Permanova/ PCoA: **Acropora humilis**
 # ----------------------------------------------------------
 
 PUT REEF AS A FACTOR HERE (refer to k-mer GUNIFRAC tree)
+Note: cannot put reef as factor because VIF score = 5 (associated w DHW3 which is calculated per reef instead of GPS_S)
 
 ```{r}
 dist_acro <- as.dist(du_acro, diag = FALSE)
@@ -159,10 +166,10 @@ adonis_meta_acro <- full_meta2 %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
 
-car::vif(lm(1:nrow(adonis_meta_acro) ~ GPS_S + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_acro)) # REEF
+car::vif(lm(1:nrow(adonis_meta_acro) ~ Reef.x + catBleaching + Depth + DHW3, data=adonis_meta_acro)) # REEF
 
 #dbRDA with all factors 
-ord_acro <- dbrda(dist_acro ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_acro, permutations = 9999)
+ord_acro <- dbrda(dist_acro ~ GPS_S + varSST + catBleaching + Depth, data = adonis_meta_acro, permutations = 9999)
 anova(ord_acro, by = 'margin')   
 
 #ordination plot 
@@ -174,7 +181,8 @@ ordplot_acro <- plot(ord_acro)
 ```{r}
 #dbrda 
 ord <- dbrda(dist_pver ~ Exposure + Depth + DHW3 + GPS_S, data = adonis_meta_pver, permutations = 9999)
-anova(ord, by = 'margin')    #indicates the marginal effect after controlling for the other variables. 
+anova(ord, by = 'margin')    #indicates the marginal effect after controlling for the other variables.
+
 #anova(ord, by = 'terms')     #analyses terms added sequentially. You get different significance because the terms are correlated, so which one goes into the model first determines how much variation is left to be explained by the second, or third... 
 
 #capscale function for comparison 
@@ -183,44 +191,11 @@ anova(ord2, by = 'margin')
 
 plot(ord2)
 
-#Depth is sometimes significant, depending on the order. Exposure and Aspect never significant. 
 
-ord3 <- dbrda(dist_pver ~ DHW3 * GPS_S, data = adonis_meta_pver, permutations = 9999)
-anova(ord3, by = 'margin')
-
-
-
-car::vif(lm(1:nrow(adonis_meta_pver) ~ GPS_S + Aspect + Exposure + catBleaching + Depth + DHW3, data=adonis_meta_pver))
 #use GVIF ^(1/2*df) to make comparable across dimensions, where df is the number of coefficients in the subset. This reduces GVIF to a linear measure, 
-
-#                   GVIF Df GVIF^(1/(2*Df))
-# GPS_S         6.142029  1        2.478312
-# Aspect       53.862659  6        1.394036
-# Exposure     22.149506  3        1.675820
-# catBleaching  1.588898  5        1.047393
-# Depth         1.535612  1        1.239198
-# DHW           7.904910  1        2.811567
-
-
-#               Df SumsOfSqs  MeanSqs F.Model      R2 Pr(>F)   
-# GPS_S          1    0.0840 0.083967 3.15665 0.02039 0.0059 **
-# Aspect         6    0.1942 0.032373 1.21703 0.04717 0.1731   
-# Exposure       3    0.0955 0.031827 1.19648 0.02319 0.2357   
-# catBleaching   5    0.1310 0.026200 0.98497 0.03181 0.4791   
-# Depth          1    0.0325 0.032517 1.22243 0.00790 0.2527   
-# DHW            1    0.0164 0.016385 0.61599 0.00398 0.7722   
-# Residuals    134    3.5644 0.026600         0.86557          
-# Total        151    4.1180                  1.00000          
- 
 
 beta <- betadisper(dist_pver, adonis_meta_pver$GPS_S)
 anova(beta)
-# Analysis of Variance Table
-# 
-# Response: Distances
-#            Df  Sum Sq   Mean Sq F value Pr(>F)
-# Groups     21 0.09242 0.0044012  0.7705 0.7504
-# Residuals 130 0.74258 0.0057121 
 
 plot(beta)
 
@@ -251,38 +226,6 @@ test_pver <- betadisper(as.dist(du_pver), adonis_meta_pver$Reef)
 plot(test_pver)
 anova(test_pver)
 ```
-
-
-##b. PCoA 
-```{r}
-pcoares_pver <- pcoa(dist_pver)
-            
-pcoa_df_pver <- as.data.frame(pcoares_pver$vectors) %>%
-  rownames_to_column(var = "plate_position") %>%
-  dplyr::select(plate_position, Axis.1:Axis.5) %>% 
-  left_join(., adonis_meta_pver %>% rownames_to_column(var = "plate_position")) %>%
-    mutate(Reef = fct_relevel(Reef, c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
-
-
-ggplot(pcoa_df_pver, aes(Axis.1, Axis.2)) +
-  geom_point(aes(fill = Reef), shape = 21, size = 3, alpha = 0.8) +
-  facet_wrap(~Reef) +
-  ggalt::geom_encircle(aes(group = Reef, fill = Reef), s_shape=1, expand=0, alpha = 0.1) 
-
-#ggsave("fig/pcoa_df_poci.png", dpi =300, width=8, height=8, units = "cm")
-
-```
-
-
-```{r}
-#the order of sequential terms: statistical significance calculated based on based on permuting distance matrix. Permutation will lead to power loss in testing effect of a covariate of interest while adjusting for other coveriates (confounders). Power loss is more evident when the confounders effects are strong. 
-
-#before running adonis, we need to see which are the strongest drivers ? And then run a few tests with additive and interacting covariates 
-
-adonis3(as.dist(du_pmea) ~ DHW6, data = adonis_meta_pmea)
-adonis3(as.dist(du_pmea) ~ GPS_S + GPS_E + DHW3 + DHW6 , data = adonis_meta_pmea)
-```
-
 
 
 
@@ -365,19 +308,12 @@ lat/long are strongly correlated. we'll sector to represent geography
 
 
 
-When one independent variable is highly correlated with another independent variable (or with a combination of
-independent variables), the marginal contribution of that independent variable is influenced by other predictor
-variables in the model. In this case, estimates for the regression coefficient of these variables can be unreliable
-or misleading.
+When one independent variable is highly correlated with another independent variable (or with a combination of independent variables), the marginal contribution of that independent variable is influenced by other predictor variables in the model. In this case, estimates for the regression coefficient of these variables can be unreliable or misleading.
 
-To check for multicolinearity problem in our model, we need the vif() function from the car package. vif()
-calculates variance-inflation and generalized variance-inflation factors for linear, generalized linear, and other
-models.It measures how much the variance of any one of the coefficients is inflated due to multicollinearity in
-the overall model.
+To check for multicolinearity problem in our model, we need the vif() function from the car package. vif() calculates variance-inflation and generalized variance-inflation factors for linear, generalized linear, and other models. It measures how much the variance of any one of the coefficients is inflated due to multicollinearity in the overall model.
 
 As a rule of thumb, a vif score over 5 is a problem. A score over 10 should be remedied and you should
-consider dropping the problematic variable from the regression model or creating an index of all the closely
-related variables.
+consider dropping the problematic variable from the regression model or creating an index of all the closely related variables.
 Note: 3 corresponds to an R-square of .6 so ideally we want values that is less than 3.
 
 ```{r}
@@ -469,145 +405,34 @@ RsquareAdj(pRDA3)
 ```
 
 
+**Other tests I don't want to delete yet** 
 
-
-
-
-
-# ----------------------------------------------------------
-Permanova/ PCoA: Pocillopora meandrina 
-# ----------------------------------------------------------
-
+##b. PCoA 
 ```{r}
-#importing unifrac distances for analysis 
-dist_pmea <- as.dist(du_pmea, diag = FALSE)
-
-dim(du_pmea)
-
-# Sanity check
-full_meta2$plate_position %in% rownames(du_pmea)
-
-adonis_meta_pmea <- full_meta2 %>%
-  dplyr::select(plate_position, Reef, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, recent.maxDHW, maxDHW, meanDHW) %>%
-  filter(plate_position %in% rownames(du_pmea)) %>%
-  tibble::column_to_rownames(var = "plate_position") %>%
-  mutate(depth_cat = round(Depth)) %>%
-  mutate(sample_name = rownames(.))
-
-res <- adonis(dist_pmea ~ meanDHW, data = adonis_meta_pmea)
-
-test_pmea <- betadisper(as.dist(du_pmea), adonis_meta_pmea$meanDHW)
-plot(test_pmea)
-anova(test_pmea)
-```
-
-
-
-# ----------------------------------------------------------
-3.2a Permanova/ PCoA: Acropora 
-# ----------------------------------------------------------
-
-```{r}
-#importing unifrac distances for analysis 
-dist_acro <- as.dist(du_acro, diag = FALSE)
-
-dim(du_acro)
-
-# Sanity check
-full_meta2$plate_position %in% rownames(du_acro)
-
-adonis_meta_acro <- full_meta2 %>%
-  select(plate_position, Reef, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3) %>%
-  filter(plate_position %in% rownames(du_acro)) %>%
-  tibble::column_to_rownames(var = "plate_position") %>%
-  mutate(depth_cat = round(Depth)) %>%
-  mutate(sample_name = rownames(.))
-
-res_acro <- adonis(dist_acro ~ DHW3, data = adonis_meta_acro)
-
-
-test_acro <- betadisper(as.dist(du_acro), adonis_meta_acro$DHW3)
-plot(test_acro)
-anova(test_acro)
-```
-
-
-## 3.2b PCoA plot for Acropora 
-```{r}
-pcoares_acro <- pcoa(dist_acro)
+pcoares_pver <- pcoa(dist_pver)
             
-pcoa_df_acro <- as.data.frame(pcoares_acro$vectors) %>%
-  rownames_to_column(var = "plate_position") %>%
-  select(plate_position, Axis.1:Axis.5) %>% 
-  left_join(., adonis_meta_acro %>% rownames_to_column(var = "plate_position")) %>% 
-    mutate(Reef = fct_relevel(Reef, c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
-
-ggplot(pcoa_df_acro, aes(Axis.1, Axis.2)) +
-  geom_point(aes(fill = Reef), shape = 21, size = 3, alpha = 0.8) +
-  facet_wrap(~Reef) +
-  ggalt::geom_encircle(aes(group = Reef, fill = Reef), s_shape=1, expand=0, alpha = 0.1) +
-  theme_classic()
-
-ggsave("AcroPCA.png", height = 7, width = 12)
-```
-
-
-
-
-
-
-**Extras ** Saving for now but might be able to delete 
-
-##a. Permanova / Betadisper 
-```{r}
-#importing unifrac distances for analysis 
-dist_poci <- as.dist(du_poci, diag = FALSE)
-
-dim(du_poci)
-
-# Sanity check
-full_meta2$plate_position %in% rownames(du_poci)
-
-adonis_meta_poci <- full_meta2 %>%
-  dplyr::select(plate_position, Reef, Site, Species, catBleaching, Morphotype, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4) %>%
-  filter(plate_position %in% rownames(du_poci)) %>%
-  tibble::column_to_rownames(var = "plate_position") %>%
-  mutate(depth_cat = round(Depth)) %>%
-  mutate(sample_name = rownames(.))
-
-res <- adonis(dist_poci ~ Reef, data = adonis_meta_poci)
-
-test_poci <- betadisper(as.dist(du_poci), adonis_meta_poci$Reef)
-plot(test_poci)
-anova(test_poci)
-```
-
-## 3b. PCoA plot
-```{r}
-pcoares_poci <- pcoa(dist_poci)
-            
-pcoa_df_poci <- as.data.frame(pcoares_poci$vectors) %>%
+pcoa_df_pver <- as.data.frame(pcoares_pver$vectors) %>%
   rownames_to_column(var = "plate_position") %>%
   dplyr::select(plate_position, Axis.1:Axis.5) %>% 
-  left_join(., adonis_meta_poci %>% rownames_to_column(var = "plate_position")) %>%
-  mutate(Reef = fct_relevel(Reef, c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
+  left_join(., adonis_meta_pver %>% rownames_to_column(var = "plate_position")) %>%
+    mutate(Reef = fct_relevel(Reef, c("Osprey", "Bougainville", "Moore", "Willis", "Holmes", "Chilcott", "Herald", "Lihou", "Flinders", "Marion", "Frederick", "Saumarez", "Wreck")))
 
-pcoa_poci <- ggplot(pcoa_df_poci, aes(Axis.1, Axis.2)) +
-  geom_point(aes(shape = Species, fill = Species), size = 2, alpha = 0.8) +
+
+ggplot(pcoa_df_pver, aes(Axis.1, Axis.2)) +
+  geom_point(aes(fill = Reef), shape = 21, size = 3, alpha = 0.8) +
   facet_wrap(~Reef) +
-  ggalt::geom_encircle(aes(group = Reef, colour = Reef), s_shape=1, expand=0, alpha = 0.5) +
-  scale_shape_manual(values = c(21,22,23)) +
-  scale_color_d3(palette = "category20") +
-  theme_classic()
+  ggalt::geom_encircle(aes(group = Reef, fill = Reef), s_shape=1, expand=0, alpha = 0.1) 
 
-ggsave("pcoa_poci.png", dpi =300, width=185, height=110, units = "mm")
+#ggsave("fig/pcoa_df_poci.png", dpi =300, width=8, height=8, units = "cm")
+
 ```
+
 
 
 #3c idea to plot the clustering, and colour by a factor **Pocillopora all species**
 ```{r}
 library(reshape2)
-k_poci <- kmeans(dist_poci, centers = 3)
+k_poci <- kmeans(dist_pver, centers = 3)
 
 kdf_poci <- enframe(k_poci$cluster) %>%
   select(name, k = value)
@@ -636,9 +461,6 @@ pcoa_df_poci <- as.data.frame(pcoares_poci$vectors) %>%
   left_join(., adonis_meta_poci %>% rownames_to_column(var = "plate_position"))
 
 ggplot(pcoa_df_poci, aes(Axis.1, Axis.2)) +
-  geom_point(aes(fill = Species), shape = 21, size = 3, alpha = 0.8) #+
- # scale_fill_viridis_c()
+  geom_point(aes(fill = Species), shape = 21, size = 3, alpha = 0.8) 
 ```
-
-
 

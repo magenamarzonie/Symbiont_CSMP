@@ -243,22 +243,19 @@ all_data %>%
 # Table 1. Sequences data 
 Get the above summary sequence statistics into a useful table - Use the gt package
 Ues the gt package. 
-```{r}
-#maybe follow this tutorial in a separate data sheet 
-library(gt)   #gt package to create publication quality tables 
-```
 
 # Pocillopora results
 
 ```{r}
 #total type profiles across Pocilloporidae 
+library(tidyverse)
 poc_data <- all_data %>%
   filter(coral_genus == "Pocillopora")
 
 poc_data %>%
   filter(str_detect(name, "p_")) %>%    #profiles start with p_
   group_by(name) %>%
-  count() %>%
+ dplyr:: count() %>%
   arrange(desc(n)) 
 #41 total profiles in Pocillopora 
 ```
@@ -275,7 +272,7 @@ What are the characteristics of the uncommon profiles?
 #total number of profiles
 poc_data %>%
   filter(str_detect(name, "p_")) %>%
-  count() %>% 
+ dplyr:: count() %>% 
   arrange(desc(n))
 # 352 total samples 
 
@@ -284,7 +281,7 @@ poc_data %>%
   filter(Species == "Pverrucosa") %>% 
   filter(str_detect(name, "p_")) %>%    #profiles start with p_
   group_by(name) %>%
-  count() %>%
+  dplyr::count() %>%
   arrange(desc(n)) 
 
 ```
