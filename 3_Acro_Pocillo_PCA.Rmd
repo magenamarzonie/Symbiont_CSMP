@@ -57,34 +57,47 @@ full_meta2 = full_meta2 %>%
 Permanova/ PCoA: **Pocillopora verrucosa**
 # ----------------------------------------------------------
 
-## a Permanova/ Betadisper 
+Workflow for each host species: 
+1) Test VIF scores and remove any with VIF score > 3 
+2) Unconstrained dbRDA to test all environmental factors 
+3) Select environmental variables of interest 
+4) Run constrained dbRDA on important enviro factors
+5) Plot constrained dbRDA using either nMDS or PCoA 
+
 ```{r}
 #importing unifrac distances for analysis 
 dist_pver <- as.dist(du_pver, diag = FALSE)
 dim(du_pver)
 
 adonis_meta_pver <- full_meta2 %>%
-  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, DHW3, DHW4, DHW6, DHW9, varSST) %>%
+  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, maxDHW, meanDHW, recent.maxDHW, recent.meanDHW, DHW2, DHW3, DHW4, DHW6, DHW8, DHW9, rangeSST, varSST, MMM) %>%
   filter(plate_position %in% rownames(du_pver)) %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
 
-car::vif(lm(1:nrow(adonis_meta_pver) ~ GPS_S  + DHW3 + catBleaching + Depth, data=adonis_meta_pver))
-#variability in SST (varSST) has collinearity with GPS_S (VIF score > 3) for most of the species (p. mea and p. unk), so will be removed from the adonis model)
+#1: test VIF scores of all variables 
+car::vif(lm(1:nrow(adonis_meta_pver) ~  Aspect, catBleaching, GPS_S, Reef.x, Site, Depth, Exposure, maxDHW, meanDHW, recent.maxDHW, recent.meanDHW, DHW2, DHW3, DHW4, DHW6, DHW8, DHW9, returnDHW3, returnDHW4, returnDHW6, rangeSST, varSST, MMM, data=adonis_meta_pver))
+
+
+#Which variables have high VIF scores? 
+#We removed X and Y variables to remove any variables with high co-linearity 
+```
+
+
+## a Permanova/ Betadisper 
+```{r}
 
 #dbRDA with all factors 
-ord_pver <- dbrda(dist_pver ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_pver, permutations = 9999, scale = TRUE)
+ord_pver <- dbrda(dist_pver ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_pver, permutations = 99999, scale = TRUE)
 anova(ord_pver, by = 'margin')   
 
-#ord_pver_cap <- capscale(dist_pver ~ GPS_S + catBleaching + Exposure + Depth + GPS_E + DHW3 + DHW6 + varSST, data = adonis_meta_pver, permutations = 9999)
-#anova(ord_pver_cap, by = 'margin')   
+#testing different order of predictors 
+ord_pver <- dbrda(dist_pver ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_pver, permutations = 99999, scale = TRUE)
+anova(ord_pver, by = 'margin')   
 
-#(fit <- envfit(ord_pver, adonis_meta_pver %>% select(GPS_S + DHW3 + catBleaching + Depth), perm = 999))
+#extract x and y coordinates to plot w ggplot for constrained axes
 
-# scores(fit, "vectors")
-# plot(res.cap)
-# plot(fit)
-# plot(fit, p.max = 0.05, col = "red")
+
 
 #ordination plot 
 ordplot_pver <- plot(ord_pver)
@@ -92,6 +105,17 @@ ordplot_pver <- plot(ord_pver)
 ```
 
 
+
+```{r}
+pcoares_pver <- pcoa(du_pver)
+
+pcoa_df_pver <- as.data.frame(pcoares_pver$vectors) %>%
+  rownames_to_column(var = "plate_position") %>%
+  left_join(., adonis_meta_pver %>% rownames_to_column(var = "plate_position"))
+
+ggplot(pcoa_df_pver, aes(Axis.1, Axis.2)) +
+  geom_point(aes(fill = catBleaching), shape = 21, size = 3, alpha = 0.8) 
+```
 
 
 
@@ -114,11 +138,35 @@ car::vif(lm(1:nrow(adonis_meta_pmea) ~ GPS_S  + catBleaching + Depth + DHW3, dat
 
 
 #dbRDA with all factors 
-ord_pmea <- dbrda(dist_pmea ~ GPS_S + varSST + catBleaching + Depth, data = adonis_meta_pmea, permutations = 9999, scale = TRUE)
+ord_pmea <- dbrda(dist_pmea ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_pmea, permutations = 9999, scale = TRUE)
 anova(ord_pmea, by = 'margin')   
 
 #ordination plot 
 ordplot_pmea <- plot(ord_pmea)
+```
+
+```{r}
+library(ggord)
+ggord(ord_pmea, adonis_meta_pmea$Reef.x) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+```
+
+
+```{r}
+# extract x and y coordinates from MDS plot into new dataframe, so you can plot with ggplot 
+MDS_xy <- data.frame(bci.mds$points) %>% 
+  rownames_to_column() %>% 
+  left_join(adonis_meta_pver %>% rownames_to_column(), by = "rowname") %>% 
+  gather(key = variable, value = value, -c(rowname, MDS1, MDS2)) %>% 
+  mutate(variable = as.factor(variable))
+bci.mds$stress # 0.1241412
+
+# plot
+ggplot(MDS_xy, aes(MDS1, MDS2, col = value)) + 
+  facet_wrap(~variable) +
+  geom_point(alpha = .5) + 
+  theme_bw() + 
+  ggtitle(round(bci.mds$stress,2)) +
+  theme(legend.position = "none")
 ```
 
 
@@ -142,7 +190,7 @@ adonis_meta_punk <- full_meta2 %>%
 car::vif(lm(1:nrow(adonis_meta_punk) ~ GPS_S + DHW3 + catBleaching + Depth, data=adonis_meta_punk))
 
 #dbRDA with all factors 
-ord_punk <- dbrda(dist_punk ~ GPS_S + varSST + catBleaching + Depth, data = adonis_meta_punk, permutations = 9999)
+ord_punk <- dbrda(dist_punk ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_punk, permutations = 9999)
 anova(ord_punk, by = 'margin')   
 
 #ordination plot 
@@ -166,7 +214,7 @@ adonis_meta_acro <- full_meta2 %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
 
-car::vif(lm(1:nrow(adonis_meta_acro) ~ Reef.x + catBleaching + Depth + DHW3, data=adonis_meta_acro)) # REEF
+car::vif(lm(1:nrow(adonis_meta_acro) ~ GPS_S + catBleaching + Depth + DHW3, data=adonis_meta_acro)) # REEF
 
 #dbRDA with all factors 
 ord_acro <- dbrda(dist_acro ~ GPS_S + varSST + catBleaching + Depth, data = adonis_meta_acro, permutations = 9999)
@@ -322,7 +370,7 @@ library(car) #for variance inflation factors
 #Check for variance inflation among key predictors
 vif(lm(1:nrow(adonis_meta_pver) ~ Sector + Morphotype + Aspect + Exposure + catBleaching + Depth + DHW + DHW6, data=adonis_meta_pver))
 ```
-Most our traits appear to be independent from one another (<3) except for DHW and #events. We want to keep DHW but we can select one of DHW3,4,6,9 to represent bleaching history (I suggest DHW6).
+Most our traits appear to be independent from one another (VIF score < 3 ) except for DHW and #events. We want to keep DHW but we can select one of DHW3,4,6,9 to represent bleaching history (I suggest DHW6).
 Note I've remove geography (lat/long) as a predictor. If you were interested in this you would have to remove some predictors eg Sector and DHW.
 
 
@@ -452,7 +500,7 @@ adonis_meta_poci <- full_meta2 %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(depth_cat = round(Depth))
 
-adonis(du_1_poci ~ Reef + Species, data = adonis_meta_poci)
+adonis(du_ ~ Reef + Species, data = adonis_meta_poci)
 
 pcoares_poci <- pcoa(du_1_poci)
 
