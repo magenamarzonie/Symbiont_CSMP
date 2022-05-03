@@ -70,21 +70,51 @@ dist_pver <- as.dist(du_pver, diag = FALSE)
 dim(du_pver)
 
 adonis_meta_pver <- full_meta2 %>%
-  dplyr::select(plate_position, Sector, Reef.x, Site, Species, catBleaching, Depth, DHW, GPS_S = `GPS south`, GPS_E = `GPS east`, Aspect, Exposure, maxDHW, meanDHW, recent.maxDHW, recent.meanDHW, DHW2, DHW3, DHW4, DHW6, DHW8, DHW9, rangeSST, varSST, MMM) %>%
+  dplyr::select(plate_position, Sector, Reef.x, Site, Species, 
+                catBleaching, Depth, DHW, GPS_S = `GPS south`, 
+                GPS_E = `GPS east`, Aspect, Exposure, maxDHW, 
+                meanDHW, recent.maxDHW, recent.meanDHW, DHW2, 
+                DHW3, DHW4, DHW6, DHW8, DHW9, returnDHW3, returnDHW4, 
+                returnDHW6, rangeSST, varSST, MMM) %>%
   filter(plate_position %in% rownames(du_pver)) %>%
   tibble::column_to_rownames(var = "plate_position") %>%
   mutate(sample_name = rownames(.))
 
-#1: test VIF scores of all variables 
-car::vif(lm(1:nrow(adonis_meta_pver) ~  Aspect, catBleaching, GPS_S, Reef.x, Site, Depth, Exposure, maxDHW, meanDHW, recent.maxDHW, recent.meanDHW, DHW2, DHW3, DHW4, DHW6, DHW8, DHW9, returnDHW3, returnDHW4, returnDHW6, rangeSST, varSST, MMM, data=adonis_meta_pver))
+# NOTE: Need to make sure there are no alias factors. E.g. exposure is an alias of Reef (e.g. all Marion = Exposed, Site and Reef contain aliases, DHW2 == DHW3, etc)
 
 
-#Which variables have high VIF scores? 
+# Make a correlation matrix of numeric variables
+cm <- cor(adonis_meta_pver %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
+                                      recent.meanDHW, DHW3, DHW4, DHW6, DHW8, 
+                                      DHW9, rangeSST, varSST, MMM, GPS_S))
+library(corrplot)
+corrplot(cm) # Clearly a lot of the DHW terms are positively related and approaching redundant
+
+# Check the vif scores of the full model
+ord_pver_full <- dbrda(dist_pver ~  Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S, data=adonis_meta_pver)
+sort(vif.cca(ord_pver_full)) # according to vif.cca documentation, values over 10 indicate redundant constraints
+    #      Depth           DHW6           DHW3  recent.maxDHW           DHW8         maxDHW           DHW9           DHW4        meanDHW       rangeSST 
+    #   1.513119       8.139152       9.269449      10.521798      10.882881      15.392102      21.143380      30.863009      58.925047      65.211384 
+    #     varSST          GPS_S recent.meanDHW            MMM 
+    # 134.792127     188.566323     190.258298     418.940058
+
+# Reduce the model (consult the corplot and vif scores)
+ord_pver <- dbrda(dist_pver ~ Depth + maxDHW + DHW3 + DHW6 + recent.maxDHW + rangeSST + GPS_S , data=adonis_meta_pver)
+
+# Re check the new vic scores
+sort(vif.cca(ord_pver))
+
+# Use ordistep to further refine the model
+os_pver <- ordistep(ord_pver, direction = "both", trace = FALSE)
+anova(os_pver, by = 'margin')
+
+plot(os_pver)
+
 #We removed X and Y variables to remove any variables with high co-linearity 
 ```
 
+## a Permanova/ Betadisper
 
-## a Permanova/ Betadisper 
 ```{r}
 
 #dbRDA with all factors 
