@@ -86,11 +86,11 @@ adonis_meta_pver <- full_meta2 %>%
 
 
 # Make a correlation matrix of numeric variables
-cm <- cor(adonis_meta_pver %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
+cm_pver <- cor(adonis_meta_pver %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
                                       recent.meanDHW, DHW3, DHW4, DHW6, DHW8, 
                                       DHW9, rangeSST, varSST, MMM, GPS_S))
 library(corrplot)
-corrplot(cm) # Clearly a lot of the DHW terms are positively related and approaching redundant
+corrplot(cm_pver) # Clearly a lot of the DHW terms are positively related and approaching redundant
 
 # Check the vif scores of the full model
 ord_pver_full <- dbrda(dist_pver ~  Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S, data=adonis_meta_pver)
@@ -102,7 +102,7 @@ sort(vif.cca(ord_pver_full))
     # 134.792127     188.566323     190.258298     418.940058
 
 # Reduce the model (consult the corplot and vif scores)
-ord_pver <- dbrda(dist_pver ~ Depth + maxDHW + DHW3 + DHW6 + recent.maxDHW + rangeSST + GPS_S , data=adonis_meta_pver)
+ord_pver <- dbrda(dist_pver ~ maxDHW + DHW3 + DHW6 + recent.maxDHW + rangeSST + GPS_S , data=adonis_meta_pver)
 
 # Re check the new vif scores
 sort(vif.cca(ord_pver))
@@ -121,6 +121,10 @@ anova(os_pver_backward, by = 'margin')
 plot(os_pver_both)
 plot(os_pver_forward)
 plot(os_pver_backward)
+
+#forward model does not take collinearity into account, as you can see by 7 predictors (many of which likely have high VIF scores)
+#both will default to 'backward' if scope is not defined in model
+
 ```
 
 **P. meandrina** 
@@ -153,14 +157,15 @@ corrplot(cm) # Clearly a lot of the DHW terms are positively related and approac
 # Check the vif scores of the full model
 ord_pmea_full <- dbrda(dist_pmea ~  Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S, data=adonis_meta_pmea)
 sort(vif.cca(ord_pmea_full)) 
-# according to vif.cca documentation, values over 10 indicate redundant constraints
-    #      Depth           DHW6           DHW3  recent.maxDHW           DHW8         maxDHW           DHW9           DHW4        meanDHW       rangeSST 
-    #   1.513119       8.139152       9.269449      10.521798      10.882881      15.392102      21.143380      30.863009      58.925047      65.211384 
-    #     varSST          GPS_S recent.meanDHW            MMM 
-    # 134.792127     188.566323     190.258298     418.940058
+  # Depth           DHW4           DHW6           DHW9           DHW8         maxDHW 
+  #     1.961623       5.524548       6.432968      10.005341      10.535683      11.883727 
+  #         DHW3  recent.maxDHW        meanDHW       rangeSST recent.meanDHW         varSST 
+  #    12.147581      13.755357      56.646502      67.138168     133.177017     155.900084 
+  #        GPS_S            MMM 
+  #   216.759822     414.329321 
 
 # Reduce the model (consult the corplot and vif scores)
-ord_pmea <- dbrda(dist_pmea ~ Depth + maxDHW + DHW3 + DHW6 + recent.maxDHW + rangeSST + GPS_S , data=adonis_meta_pmea)
+ord_pmea <- dbrda(dist_pmea ~ Depth + DHW4 , data=adonis_meta_pmea)
 
 # Re check the new vif scores
 sort(vif.cca(ord_pmea))
@@ -178,44 +183,74 @@ anova(os_pmea_backward, by = 'margin')
 plot(os_pmea_both)
 plot(os_pmea_forward)
 plot(os_pmea_backward)
+
+#again, backward model seems to be the best option for narrowing down predictors AND ones that are not collinear
+#both will default to 'backward' if scope is not defined in model
+
 ```
 
 
-## a Permanova/ Betadisper
-
+**A. humilis**
 ```{r}
+#importing unifrac distances for analysis 
+dist_acro <- as.dist(du_acro, diag = FALSE)
+dim(du_acro)
 
-#dbRDA with all factors 
-ord_pver <- dbrda(dist_pver ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_pver, permutations = 99999, scale = TRUE)
-anova(ord_pver, by = 'margin')   
+adonis_meta_acro <- full_meta2 %>%
+  dplyr::select(plate_position, Sector, Reef.x, Site, Species, 
+                catBleaching, Depth, DHW, GPS_S = `GPS south`, 
+                GPS_E = `GPS east`, Aspect, Exposure, maxDHW, 
+                meanDHW, recent.maxDHW, recent.meanDHW, DHW2, 
+                DHW3, DHW4, DHW6, DHW8, DHW9, returnDHW3, returnDHW4, 
+                returnDHW6, rangeSST, varSST, MMM) %>%
+  filter(plate_position %in% rownames(du_acro)) %>%
+  tibble::column_to_rownames(var = "plate_position") %>%
+  mutate(sample_name = rownames(.))
 
-#testing different order of predictors 
-ord_pver <- dbrda(dist_pver ~ GPS_S + DHW3 + catBleaching + Depth, data = adonis_meta_pver, permutations = 99999, scale = TRUE)
-anova(ord_pver, by = 'margin')   
-
-#extract x and y coordinates to plot w ggplot for constrained axes
+# NOTE: Need to make sure there are no alias factors. E.g. exposure is an alias of Reef (e.g. all Marion = Exposed, Site and Reef contain aliases, DHW2 == DHW3, etc)
 
 
+# Make a correlation matrix of numeric variables
+cm_acro <- cor(adonis_meta_acro %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
+                                      recent.meanDHW, DHW3, DHW4, DHW6, DHW8, 
+                                      DHW9, rangeSST, varSST, MMM, GPS_S))
+library(corrplot)
+corrplot(cm_acro) # Clearly a lot of the DHW terms are positively related and approaching redundant
 
-#ordination plot 
-ordplot_pver <- plot(ord_pver)
+# Check the vif scores of the full model
+ord_acro_full <- dbrda(dist_acro ~  Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S, data=adonis_meta_acro)
+sort(vif.cca(ord_acro_full)) 
+# according to vif.cca documentation, values over 10 indicate redundant constraints
+    #  Depth           DHW6           DHW8           DHW3           DHW4           DHW9 
+    #   1.602809       5.019220       6.170613       7.151695       8.330065      13.456450 
+    #     maxDHW  recent.maxDHW        meanDHW recent.meanDHW       rangeSST         varSST 
+    #  15.191953      15.506837      28.891993     113.987710     155.276867     179.948250 
+    #      GPS_S            MMM 
+    # 735.291524     780.690427 
 
+# Reduce the model (consult the corplot and vif scores)
+ord_acro <- dbrda(dist_acro ~ Depth + maxDHW + DHW3 + DHW6 + recent.maxDHW + rangeSST + GPS_S , data=adonis_meta_acro)
+
+# Re check the new vif scores
+sort(vif.cca(ord_acro))
+
+# Use ordistep to further refine the model
+os_acro_both <- ordistep(ord_acro, direction = "both", trace = FALSE)
+anova(os_acro_both, by = 'margin')
+
+os_acro_forward <- ordistep(ord_acro, direction = "forward", trace = FALSE)
+anova(os_acro_forward, by = 'margin')
+
+os_acro_backward <- ordistep(ord_acro, direction = "backward", trace = FALSE)
+anova(os_acro_backward, by = 'margin')
+
+plot(os_acro_both)
+plot(os_acro_forward)
+plot(os_acro_backward)
+
+#again, backward model seems to be the best option for narrowing down predictors AND ones that are not collinear
+#both will default to 'backward' if scope is not defined in model
 ```
-
-
-
-```{r}
-pcoares_pver <- pcoa(du_pver)
-
-pcoa_df_pver <- as.data.frame(pcoares_pver$vectors) %>%
-  rownames_to_column(var = "plate_position") %>%
-  left_join(., adonis_meta_pver %>% rownames_to_column(var = "plate_position"))
-
-ggplot(pcoa_df_pver, aes(Axis.1, Axis.2)) +
-  geom_point(aes(fill = catBleaching), shape = 21, size = 3, alpha = 0.8) 
-```
-
-
 
 # ----------------------------------------------------------
 Permanova/ PCoA: **Pocillopora meandrina**
@@ -243,29 +278,8 @@ anova(ord_pmea, by = 'margin')
 ordplot_pmea <- plot(ord_pmea)
 ```
 
-```{r}
-library(ggord)
-ggord(ord_pmea, adonis_meta_pmea$Reef.x) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
-```
 
 
-```{r}
-# extract x and y coordinates from MDS plot into new dataframe, so you can plot with ggplot 
-MDS_xy <- data.frame(bci.mds$points) %>% 
-  rownames_to_column() %>% 
-  left_join(adonis_meta_pver %>% rownames_to_column(), by = "rowname") %>% 
-  gather(key = variable, value = value, -c(rowname, MDS1, MDS2)) %>% 
-  mutate(variable = as.factor(variable))
-bci.mds$stress # 0.1241412
-
-# plot
-ggplot(MDS_xy, aes(MDS1, MDS2, col = value)) + 
-  facet_wrap(~variable) +
-  geom_point(alpha = .5) + 
-  theme_bw() + 
-  ggtitle(round(bci.mds$stress,2)) +
-  theme(legend.position = "none")
-```
 
 
 # ----------------------------------------------------------
@@ -324,6 +338,8 @@ ordplot_acro <- plot(ord_acro)
 
 
 
+
+
 ```{r}
 #dbrda 
 ord <- dbrda(dist_pver ~ Exposure + Depth + DHW3 + GPS_S, data = adonis_meta_pver, permutations = 9999)
@@ -375,12 +391,16 @@ anova(test_pver)
 
 
 
+
+
+
+**Hugo's code from Fukami lab tutorial**
 ## c. RDA P.ver
 
 ### MDS to explore the data
 Let's quickly explore the data to see if any major patterns stand out.
 
-*Ideally, I think we should standardise the data in to proportion for each sample before picking the most abudant sequences*
+Ideally, I think we should standardise the data in to proportion for each sample before picking the most abudant sequences
 ```{r}
 # Load community matrix
 load(file = "pver.community.matrix.RData")
@@ -610,3 +630,34 @@ ggplot(pcoa_df_poci, aes(Axis.1, Axis.2)) +
   geom_point(aes(fill = Species), shape = 21, size = 3, alpha = 0.8) 
 ```
 
+
+
+```{r}
+# extract x and y coordinates from MDS plot into new dataframe, so you can plot with ggplot 
+MDS_xy <- data.frame(bci.mds$points) %>% 
+  rownames_to_column() %>% 
+  left_join(adonis_meta_pver %>% rownames_to_column(), by = "rowname") %>% 
+  gather(key = variable, value = value, -c(rowname, MDS1, MDS2)) %>% 
+  mutate(variable = as.factor(variable))
+bci.mds$stress # 0.1241412
+
+# plot
+ggplot(MDS_xy, aes(MDS1, MDS2, col = value)) + 
+  facet_wrap(~variable) +
+  geom_point(alpha = .5) + 
+  theme_bw() + 
+  ggtitle(round(bci.mds$stress,2)) +
+  theme(legend.position = "none")
+```
+
+
+```{r}
+pcoares_pver <- pcoa(du_pver)
+
+pcoa_df_pver <- as.data.frame(pcoares_pver$vectors) %>%
+  rownames_to_column(var = "plate_position") %>%
+  left_join(., adonis_meta_pver %>% rownames_to_column(var = "plate_position"))
+
+ggplot(pcoa_df_pver, aes(Axis.1, Axis.2)) +
+  geom_point(aes(fill = catBleaching), shape = 21, size = 3, alpha = 0.8) 
+```
