@@ -1,0 +1,187 @@
+---
+title: "0_HugoPCA"
+author: "Magena Marzonie"
+date: "05/05/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+**Hugo's code from Fukami lab tutorial**
+## c. RDA P.ver
+
+### MDS to explore the data
+Let's quickly explore the data to see if any major patterns stand out.
+
+Ideally, I think we should standardise the data in to proportion for each sample before picking the most abudant sequences
+```{r}
+# Load community matrix
+load(file = "pver.community.matrix.RData")
+
+my.symbionts = pver.community.matrix %>% summarise_all(mean, na.rm = T) %>% 
+  gather() %>% 
+  arrange(desc(value)) %>% 
+  #ggplot(aes(y = value, x = key)) + geom_col()
+  top_n(30) %>% pull(key)
+
+# hellinger transform the species dataset: gives low weights to rare species 
+spe.hel <- decostand(pver.community.matrix %>% select(all_of(my.symbionts)), "hellinger")
+
+# Calculate distance matrix
+bc<-vegdist(spe.hel, method="bray", binary=FALSE) 
+
+# look at an unconstrained ordination first, it is always a good idea to look at both unconstrained and constrained ordinations
+# set the seed: to reproduce the same result in the fture
+
+bci.mds<-metaMDS(spe.hel, distance = "bray", k = 2, try = 60)
+
+# extract x and y coordinates from MDS plot into new dataframe, so you can plot with ggplot 
+MDS_xy <- data.frame(bci.mds$points) %>% 
+  rownames_to_column() %>% 
+  left_join(adonis_meta_pver %>% rownames_to_column(), by = "rowname") %>% 
+  gather(key = variable, value = value, -c(rowname, MDS1, MDS2)) %>% 
+  mutate(variable = as.factor(variable))
+bci.mds$stress # 0.1241412
+
+# plot
+ggplot(MDS_xy, aes(MDS1, MDS2, col = value)) + 
+  facet_wrap(~variable) +
+  geom_point(alpha = .5) + 
+  theme_bw() + 
+  ggtitle(round(bci.mds$stress,2)) +
+  theme(legend.position = "none")
+
+```
+It's not obsvious what might be driving community structure in these samples. 
+Let's see if and of the predictors come out significant
+
+
+```{r}
+mdsvectors <- data.frame(bci.mds$species) %>% add_rownames("Species") %>%
+  mutate(distance = sqrt((MDS1)^2 + (MDS2)^2))
+  
+mdspoints <- data.frame(scores(bci.mds))
+
+ggplot()+
+    geom_point(data=mdspoints, aes(x=NMDS1, y=NMDS2), col="white")+
+    geom_segment(data=mdsvectors, aes(xend=0, yend=0, x=MDS1, y=MDS2), alpha = .6)+
+    geom_segment(data=mdsvectors %>% top_n(8, distance), aes(xend=0, yend=0, x=MDS1, y=MDS2), alpha = 1) +
+    geom_text(data=mdsvectors %>% top_n(8, distance), aes(x=MDS1, y=MDS2, label=Species), col="black", size=2.5, segment.colour = NA, box.padding = .2) +
+   theme_classic()
+```
+
+
+### select traits
+https://fukamilab.github.io/BIO202/06-B-constrained-ordination.html
+```{r}
+# create predictor data
+# Check correlations, and avoid using predictors that are highly (un)correlated
+library(corrplot)
+adonis_meta_pver %>% 
+  select(where(is.numeric)) %>%
+cor %>%
+corrplot(type = "upper", diag = F)
+```
+Reef and DHW and lat/long are aliases (interchangeable) 
+lat/long are strongly correlated. we'll sector to represent geography
+
+
+
+When one independent variable is highly correlated with another independent variable (or with a combination of independent variables), the marginal contribution of that independent variable is influenced by other predictor variables in the model. In this case, estimates for the regression coefficient of these variables can be unreliable or misleading.
+
+To check for multicolinearity problem in our model, we need the vif() function from the car package. vif() calculates variance-inflation and generalized variance-inflation factors for linear, generalized linear, and other models. It measures how much the variance of any one of the coefficients is inflated due to multicollinearity in the overall model.
+
+As a rule of thumb, a vif score over 5 is a problem. A score over 10 should be remedied and you should
+consider dropping the problematic variable from the regression model or creating an index of all the closely related variables.
+Note: 3 corresponds to an R-square of .6 so ideally we want values that is less than 3.
+
+```{r}
+# Estimate VIF and plot
+library(car) #for variance inflation factors
+#Check for variance inflation among key predictors
+vif(lm(1:nrow(adonis_meta_pver) ~ Sector + Aspect + Exposure + catBleaching + Depth + DHW + DHW6, data=adonis_meta_pver))
+```
+Most our traits appear to be independent from one another (VIF score < 3 ) except for DHW and #events. We want to keep DHW but we can select one of DHW3,4,6,9 to represent bleaching history (I suggest DHW6).
+Note I've remove geography (lat/long) as a predictor. If you were interested in this you would have to remove some predictors eg Sector and DHW.
+
+
+
+
+We can  standardize the variables to zero mean and unit variance by adding argument scale = TRUE into the rda function. This standardisation ensures that each variable brings the same amount of variance into the analysis. This is important in the case that variables are each in very different units and have therefore very different variances.
+
+```{r}
+## Full model
+RDAfull <- rda(pver.community.matrix %>% select(all_of(my.symbionts)) ~ Sector + Morphotype + Aspect + Exposure + catBleaching + Depth + DHW + DHW6,  data = adonis_meta_pver, scale = TRUE)
+
+screeplot(RDAfull)
+```
+We can see that the first axis explains most of the variance in the data.
+
+
+```{r}
+# Test of all canonical axes
+anova.cca(RDAfull, by='axis', step=99)
+
+# canonical coefficients
+as.data.frame(coef(RDAfull)) %>% rownames_to_column() %>% 
+  select(rowname, RDA1) %>% arrange(desc(RDA1)) 
+```
+Only RDA1 is important.
+          Df Variance      F Pr(>F)  
+RDA1       1    6.737 4.6093  0.011 *
+
+
+```{r}
+summary(RDAfull)
+```
+
+Partitioning of correlations:
+              Inertia Proportion
+Total          40.000     1.0000
+Constrained     6.229     0.1557
+Unconstrained  33.771     0.8443
+
+The *constrained* is the amount of variance the community matrix is explained by the explanatory variables (expressed as a proportion). Here, our predictors explain 15.6% of the data, and 84.4% of variance is unexplained (*unconstrained*). I suspect this is driven largely by 1 or 2 predictors.
+
+
+```{r}
+# adjusted R^2
+R2adj <- RsquareAdj(RDAfull)$adj.r.squared
+R2adj 
+```
+The adjusted R2 measures the unbiased amount of explained variation. So this model explains 4% of the variation in the data. If you used the biased R2, any variable included in the explanatory responses would increase the R2, so the R2 needs to be adjusted for the number of explanatory variables (especially since we have eight included here).
+
+
+```{r}
+plot(RDAfull, scaling=1, main="Triplot RDA matrix ~ env - scaling 1 - wa scores")
+
+# arrows for species are missing, so lets add them without heads so they look different than the explanatory variables
+spe.sc <- scores(RDAfull, choices=1:2, scaling=1, display="sp")
+arrows(0,0,spe.sc[,1], spe.sc[,2], length=0, lty=1, col='red')
+```
+
+
+
+
+```{r}
+## Model geography
+pRDA1 <- rda(pver.community.matrix %>% select(all_of(my.symbionts)) ~ Sector + Aspect + Exposure + Depth + Condition(Morphotype  + catBleaching + DHW + DHW6),  data = adonis_meta_pver, scale = TRUE)
+anova(pRDA1)
+pRDA1
+RsquareAdj(pRDA1)
+
+## Model bleaching
+pRDA2 <- rda(pver.community.matrix %>% select(all_of(my.symbionts)) ~ catBleaching + DHW + Condition(Sector + Morphotype + Aspect + Exposure + Depth + DHW6),  data = adonis_meta_pver, scale = TRUE)
+anova(pRDA2)
+pRDA2
+RsquareAdj(pRDA2)
+
+## Model climate history
+pRDA3 <- rda(pver.community.matrix %>% select(all_of(my.symbionts)) ~ DHW6 + Condition(Sector + Morphotype + Aspect + Exposure + catBleaching + Depth + DHW),  data = adonis_meta_pver, scale = TRUE)
+anova(pRDA3)
+pRDA3
+RsquareAdj(pRDA3)
+```
