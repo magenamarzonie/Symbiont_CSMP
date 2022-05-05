@@ -102,30 +102,42 @@ sort(vif.cca(ord_pver_full))
     # 134.792127     188.566323     190.258298     418.940058
 
 # Reduce the model (consult the corplot and vif scores)
-ord_pver <- dbrda(dist_pver ~ maxDHW + DHW3 + DHW6 + recent.maxDHW + rangeSST + GPS_S , data=adonis_meta_pver)
+ord_pver <- dbrda(dist_pver ~ Depth + DHW3 + DHW6 + recent.maxDHW + rangeSST + GPS_S, data=adonis_meta_pver)
 
 # Re check the new vif scores
 sort(vif.cca(ord_pver))
-
+# Depth          DHW3          DHW6 recent.maxDHW         GPS_S      rangeSST 
+#      1.101216      1.298297      1.520353      1.705474      1.722712      2.315683 
 
 # Use ordistep to further refine the model
-os_pver_both <- ordistep(ord_pver, direction = "both", trace = FALSE)
-anova(os_pver_both, by = 'margin')
-
-os_pver_forward <- ordistep(ord_pver, direction = "forward", trace = FALSE)
-anova(os_pver_forward, by = 'margin')
-
 os_pver_backward <- ordistep(ord_pver, direction = "backward", trace = FALSE)
 anova(os_pver_backward, by = 'margin')
 
-plot(os_pver_both)
-plot(os_pver_forward)
+pver_scores <- as.data.frame(scores(os_pver_backward, display = "sites")) %>%
+  tibble::rownames_to_column(var = "plate_position") %>%
+  left_join(., adonis_meta_pver %>% tibble::rownames_to_column(var = "plate_position"))
+
+pver_vectors <- as.data.frame(os_pver_backward$CCA$biplot) %>%
+  tibble::rownames_to_column(var = "factors")
+
+ggplot(pver_scores, aes(x = dbRDA1, y = dbRDA2)) +
+  geom_point(aes(fill = DHW3), size = 4, shape = 21) +
+  #geom_encircle(aes(group = k), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
+  geom_text(data = pver_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
+  geom_segment(data = pver_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
+  theme(legend.position = "right", aspect.ratio = 1) +
+  scale_fill_viridis_c(option = "magma")
+
 plot(os_pver_backward)
 
 #forward model does not take collinearity into account, as you can see by 7 predictors (many of which likely have high VIF scores)
 #both will default to 'backward' if scope is not defined in model
 
 ```
+```{r}
+corrplot(cm_pver)
+```
+
 
 **P. meandrina** 
 ```{r}
@@ -146,7 +158,6 @@ adonis_meta_pmea <- full_meta2 %>%
 
 # NOTE: Need to make sure there are no alias factors. E.g. exposure is an alias of Reef (e.g. all Marion = Exposed, Site and Reef contain aliases, DHW2 == DHW3, etc)
 
-
 # Make a correlation matrix of numeric variables
 cm <- cor(adonis_meta_pmea %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
                                       recent.meanDHW, DHW3, DHW4, DHW6, DHW8, 
@@ -155,42 +166,48 @@ library(corrplot)
 corrplot(cm) # Clearly a lot of the DHW terms are positively related and approaching redundant
 
 # Check the vif scores of the full model
-ord_pmea_full <- dbrda(dist_pmea ~  Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S, data=adonis_meta_pmea)
+ord_pmea_full <- dbrda(dist_pmea ~ Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S, data=adonis_meta_pmea)
 sort(vif.cca(ord_pmea_full)) 
-  # Depth           DHW4           DHW6           DHW9           DHW8         maxDHW 
-  #     1.961623       5.524548       6.432968      10.005341      10.535683      11.883727 
-  #         DHW3  recent.maxDHW        meanDHW       rangeSST recent.meanDHW         varSST 
-  #    12.147581      13.755357      56.646502      67.138168     133.177017     155.900084 
-  #        GPS_S            MMM 
-  #   216.759822     414.329321 
+# Depth           DHW4           DHW6           DHW9           DHW8         maxDHW           DHW3  recent.maxDHW        meanDHW       rangeSST recent.meanDHW         varSST 
+#       1.961623       5.524548       6.432968      10.005341      10.535683      11.883727      12.147581      13.755357      56.646502      67.138168     133.177017     155.900084 
+#          GPS_S            MMM 
+#     216.759822     414.329321  
 
 # Reduce the model (consult the corplot and vif scores)
-ord_pmea <- dbrda(dist_pmea ~ Depth + DHW4 , data=adonis_meta_pmea)
+ord_pmea <- dbrda(dist_pmea ~ Depth + DHW3 + DHW6 + recent.maxDHW + rangeSST + GPS_S, data = adonis_meta_pmea)
 
 # Re check the new vif scores
 sort(vif.cca(ord_pmea))
+# Depth          DHW3 recent.maxDHW      rangeSST          DHW6         GPS_S 
+#      1.420261      1.550909      2.024239      2.425726      3.050987      3.653113 
 
 # Use ordistep to further refine the model
-os_pmea_both <- ordistep(ord_pmea, direction = "both", trace = FALSE)
-anova(os_pmea_both, by = 'margin')
-
-os_pmea_forward <- ordistep(ord_pmea, direction = "forward", trace = FALSE)
-anova(os_pmea_forward, by = 'margin')
-
-os_pmea_backward <- ordistep(ord_pmea, direction = "backward", trace = FALSE)
+os_pmea_backward <- ordistep(ord_pmea, direction = "backward")
 anova(os_pmea_backward, by = 'margin')
 
-plot(os_pmea_both)
-plot(os_pmea_forward)
+pmea_scores <- as.data.frame(scores(os_pmea_backward, display = "sites")) %>%
+  tibble::rownames_to_column(var = "plate_position") %>%
+  left_join(., adonis_meta_pmea %>% tibble::rownames_to_column(var = "plate_position"))
+
+pmea_vectors <- as.data.frame(os_pmea_backward$CCA$biplot) %>%
+  tibble::rownames_to_column(var = "factors")
+
+ggplot(pmea_scores, aes(x = dbRDA1, y = dbRDA2)) +
+  geom_point(aes(fill = GPS_S), size = 4, shape = 21) +
+  #ggalt::geom_encircle(aes(group = Reef.x), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
+  facet_wrap(~Reef.x) +
+  geom_text(data = pmea_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
+  geom_segment(data = pmea_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
+  theme(legend.position = "right", aspect.ratio = 1) +
+  scale_fill_viridis_c(option = "magma")
+
 plot(os_pmea_backward)
 
 #again, backward model seems to be the best option for narrowing down predictors AND ones that are not collinear
 #both will default to 'backward' if scope is not defined in model
-
 ```
-
-
 **A. humilis**
+
 ```{r}
 #importing unifrac distances for analysis 
 dist_acro <- as.dist(du_acro, diag = FALSE)
