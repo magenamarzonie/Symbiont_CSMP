@@ -58,11 +58,11 @@ Permanova/ PCoA: **Pocillopora verrucosa**
 # ----------------------------------------------------------
 
 Workflow for each host species: 
-1) Test VIF scores and remove any with VIF score > 3 
-2) Unconstrained dbRDA to test all environmental factors 
-3) Select environmental variables of interest 
-4) Run constrained dbRDA on important enviro factors
-5) Plot constrained dbRDA using either nMDS or PCoA 
+1) Run full model (dbRDA) and plot correlation matrix of numeric variables 
+2) Consult VIF scores of full model and correlation matrix. Narrow down variables to remove any obvious collinear variables 
+3) Select environmental variables of interest with reference to correlation plots 
+4) Run backward stepwise model (ordistep) to reduce model
+5) Plot constrained ordistep (dbRDA) using PCoA
 
 
 **P. verrucosa**
@@ -102,7 +102,7 @@ sort(vif.cca(ord_pver_full))
     # 134.792127     188.566323     190.258298     418.940058
 
 # Reduce the model (consult the corplot and vif scores)
-ord_pver <- dbrda(dist_pver ~ Depth + DHW3 + DHW6 + recent.maxDHW + rangeSST + GPS_S, data=adonis_meta_pver)
+ord_pver <- dbrda(dist_pver ~ Depth + DHW3 + DHW6 + recent.maxDHW + varSST + GPS_S, data=adonis_meta_pver)
 
 # Re check the new vif scores
 sort(vif.cca(ord_pver))
@@ -121,10 +121,10 @@ pver_vectors <- as.data.frame(os_pver_backward$CCA$biplot) %>%
   tibble::rownames_to_column(var = "factors")
 
 ggplot(pver_scores, aes(x = dbRDA1, y = dbRDA2)) +
-  geom_point(aes(fill = DHW3), size = 4, shape = 21) +
+  geom_point(aes(fill = GPS_S), size = 4, shape = 21) +
   #geom_encircle(aes(group = k), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
-  geom_text(data = pver_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
-  geom_segment(data = pver_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
+  geom_text(data = pver_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 3) +
+  geom_segment(data = pver_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.8, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
   theme(legend.position = "right", aspect.ratio = 1) +
   scale_fill_viridis_c(option = "magma")
 
@@ -176,6 +176,7 @@ sort(vif.cca(ord_pmea_full))
 # Reduce the model (consult the corplot and vif scores)
 ord_pmea <- dbrda(dist_pmea ~ Depth + DHW3 + DHW6 + recent.maxDHW + varSST + GPS_S, data = adonis_meta_pmea)
 
+
 # Re check the new vif scores
 sort(vif.cca(ord_pmea))
 # Depth          DHW3 recent.maxDHW      rangeSST          DHW6         GPS_S 
@@ -203,75 +204,6 @@ ggplot(pmea_scores, aes(x = dbRDA1, y = dbRDA2)) +
 
 plot(os_pmea_backward)
 ```
-**A. humilis**
-
-```{r}
-#importing unifrac distances for analysis 
-dist_acro <- as.dist(du_acro, diag = FALSE)
-dim(du_acro)
-
-adonis_meta_acro <- full_meta2 %>%
-  dplyr::select(plate_position, Sector, Reef.x, Site, Species, 
-                catBleaching, Depth, DHW, GPS_S = `GPS south`, 
-                GPS_E = `GPS east`, Aspect, Exposure, maxDHW, 
-                meanDHW, recent.maxDHW, recent.meanDHW, DHW2, 
-                DHW3, DHW4, DHW6, DHW8, DHW9, returnDHW3, returnDHW4, 
-                returnDHW6, rangeSST, varSST, MMM) %>%
-  filter(plate_position %in% rownames(du_acro)) %>%
-  tibble::column_to_rownames(var = "plate_position") %>%
-  mutate(sample_name = rownames(.))
-
-# NOTE: Need to make sure there are no alias factors. E.g. exposure is an alias of Reef (e.g. all Marion = Exposed, Site and Reef contain aliases, DHW2 == DHW3, etc)
-
-
-# Make a correlation matrix of numeric variables
-cm_acro <- cor(adonis_meta_acro %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
-                                      recent.meanDHW, DHW3, DHW4, DHW6, DHW8, 
-                                      DHW9, rangeSST, varSST, MMM, GPS_S))
-library(corrplot)
-corrplot(cm_acro) # Clearly a lot of the DHW terms are positively related and approaching redundant
-
-# Check the vif scores of the full model
-ord_acro_full <- dbrda(dist_acro ~  Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S, data=adonis_meta_acro)
-sort(vif.cca(ord_acro_full)) 
-# according to vif.cca documentation, values over 10 indicate redundant constraints
-    #  Depth           DHW6           DHW8           DHW3           DHW4           DHW9 
-    #   1.602809       5.019220       6.170613       7.151695       8.330065      13.456450 
-    #     maxDHW  recent.maxDHW        meanDHW recent.meanDHW       rangeSST         varSST 
-    #  15.191953      15.506837      28.891993     113.987710     155.276867     179.948250 
-    #      GPS_S            MMM 
-    # 735.291524     780.690427 
-
-# Reduce the model (consult the corplot and vif scores)
-ord_acro <- dbrda(dist_acro ~ Depth + maxDHW + DHW3 + DHW6 + recent.maxDHW + varSST + GPS_S , data=adonis_meta_acro)
-
-# Re check the new vif scores
-sort(vif.cca(ord_acro))
-
-# Use ordistep to further refine the model
-os_acro_backward <- ordistep(ord_acro, direction = "backward", trace = FALSE)
-anova(os_acro_backward, by = 'margin')
-
-
-acro_scores <- as.data.frame(scores(os_acro_backward, display = "sites")) %>%
-  tibble::rownames_to_column(var = "plate_position") %>%
-  left_join(., adonis_meta_acro %>% tibble::rownames_to_column(var = "plate_position"))
-
-acro_vectors <- as.data.frame(os_acro_backward$CCA$biplot) %>%
-  tibble::rownames_to_column(var = "factors")
-
-ggplot(acro_scores, aes(x = dbRDA1, y = dbRDA2)) +
-  geom_point(aes(fill = GPS_S), size = 4, shape = 21) +
-  #ggalt::geom_encircle(aes(group = Reef.x), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
-  #facet_wrap(~Reef.x) +
-  geom_text(data = acro_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
-  geom_segment(data = acro_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
-  theme(legend.position = "right", aspect.ratio = 1) +
-  scale_fill_viridis_c(option = "magma")
-
-plot(os_acro_backward)
-```
-
 
 
 ```{r}
@@ -312,7 +244,7 @@ sort(vif.cca(ord_punk_full))
     # 735.291524     780.690427 
 
 # Reduce the model (consult the corplot and vif scores)
-ord_punk <- dbrda(dist_punk ~ Depth + maxDHW + DHW3 + DHW6 + recent.maxDHW + varSST + GPS_S , data=adonis_meta_punk)
+ord_punk <- dbrda(dist_punk ~ Depth + DHW3 + DHW6 + recent.maxDHW + varSST + GPS_S , data=adonis_meta_punk)
 
 # Re check the new vif scores
 sort(vif.cca(ord_punk))
@@ -340,5 +272,79 @@ ggplot(punk_scores, aes(x = dbRDA1, y = dbRDA2)) +
 
 plot(os_punk_backward)
 ```
+
+
+**A. humilis**
+```{r}
+#importing unifrac distances for analysis 
+dist_acro <- as.dist(du_acro, diag = FALSE)
+dim(du_acro)
+
+adonis_meta_acro <- full_meta2 %>%
+  dplyr::select(plate_position, Sector, Reef.x, Site, Species, 
+                catBleaching, Depth, DHW, GPS_S = `GPS south`, 
+                GPS_E = `GPS east`, Aspect, Exposure, maxDHW, 
+                meanDHW, recent.maxDHW, recent.meanDHW, DHW2, 
+                DHW3, DHW4, DHW6, DHW8, DHW9, returnDHW3, returnDHW4, 
+                returnDHW6, rangeSST, varSST, MMM) %>%
+  filter(plate_position %in% rownames(du_acro)) %>%
+  tibble::column_to_rownames(var = "plate_position") %>%
+  mutate(sample_name = rownames(.))
+
+# NOTE: Need to make sure there are no alias factors. E.g. exposure is an alias of Reef (e.g. all Marion = Exposed, Site and Reef contain aliases, DHW2 == DHW3, etc)
+
+
+# Make a correlation matrix of numeric variables
+cm_acro <- cor(adonis_meta_acro %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
+                                      recent.meanDHW, DHW3, DHW4, DHW6, DHW8, 
+                                      DHW9, rangeSST, varSST, MMM, GPS_S))
+library(corrplot)
+corrplot(cm_acro) # Clearly a lot of the DHW terms are positively related and approaching redundant
+
+# Check the vif scores of the full model
+ord_acro_full <- dbrda(dist_acro ~  Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S, data=adonis_meta_acro)
+sort(vif.cca(ord_acro_full)) 
+# according to vif.cca documentation, values over 10 indicate redundant constraints
+    #  Depth           DHW6           DHW8           DHW3           DHW4           DHW9 
+    #   1.602809       5.019220       6.170613       7.151695       8.330065      13.456450 
+    #     maxDHW  recent.maxDHW        meanDHW recent.meanDHW       rangeSST         varSST 
+    #  15.191953      15.506837      28.891993     113.987710     155.276867     179.948250 
+    #      GPS_S            MMM 
+    # 735.291524     780.690427 
+
+# Reduce the model (consult the corplot and vif scores)
+ord_acro <- dbrda(dist_acro ~ Depth + DHW3 + DHW6 + recent.maxDHW + varSST + GPS_S , data=adonis_meta_acro)
+
+
+# Re check the new vif scores
+sort(vif.cca(ord_acro))
+
+# Use ordistep to further refine the model
+os_acro_backward <- ordistep(ord_acro, direction = "backward", trace = FALSE)
+anova(os_acro_backward, by = 'margin')
+
+
+acro_scores <- as.data.frame(scores(os_acro_backward, display = "sites")) %>%
+  tibble::rownames_to_column(var = "plate_position") %>%
+  left_join(., adonis_meta_acro %>% tibble::rownames_to_column(var = "plate_position"))
+
+acro_vectors <- as.data.frame(os_acro_backward$CCA$biplot) %>%
+  tibble::rownames_to_column(var = "factors")
+
+ggplot(acro_scores, aes(x = dbRDA1, y = dbRDA2)) +
+  geom_point(aes(fill = GPS_S), size = 4, shape = 21) +
+  #ggalt::geom_encircle(aes(group = Reef.x), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
+  #facet_wrap(~Reef.x) +
+  geom_text(data = acro_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
+  geom_segment(data = acro_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
+  theme(legend.position = "right", aspect.ratio = 1) +
+  scale_fill_viridis_c(option = "magma")
+
+plot(os_acro_backward)
+```
+
+
+
+
 
 

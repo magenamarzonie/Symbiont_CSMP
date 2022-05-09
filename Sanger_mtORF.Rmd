@@ -1,0 +1,76 @@
+---
+title: "sanger_mtORF"
+author: "Magena Marzonie"
+date: "09/05/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(sangerseqR)
+library(bioseq)
+library(DECIPHER)
+library(phangorn)
+library(tidyverse)
+
+read_fasta_df <- function(file = ""){
+    fasta <- readLines(file)
+    ind <- grep(">", fasta)
+    s <- data.frame(ind = ind, from = ind + 1, to = c((ind - 
+        1)[-1], length(fasta)))
+    seqs <- rep(NA, length(ind))
+    for (i in 1:length(ind)) {
+        seqs[i] <- paste(fasta[s$from[i]:s$to[i]], collapse = "")
+    }
+    tib <- tibble(label = gsub(">", "", fasta[ind]), 
+        sequence = seqs)
+    return(tib)
+}
+
+write_fasta_df <- function (data, filename) 
+{
+    fastaLines = c()
+    for (rowNum in 1:nrow(data)) {
+        fastaLines = c(fastaLines, as.character(paste(">", 
+            data[rowNum, "label"], sep = "")))
+        fastaLines = c(fastaLines, as.character(data[rowNum, 
+            "sequence"]))
+    }
+    fileConn <- file(filename)
+    writeLines(fastaLines, fileConn)
+    close(fileConn)
+}
+
+dna_to_DNAbin <- function (dna){
+  DNAbin <- as_DNAbin(dna)
+  names(DNAbin) <- names(dna)
+  return(DNAbin)
+}
+dna_to_DNAStringset <- function(x) 
+{
+    bioseq:::check_dna(x)
+    DNAstr <- DNAStringSet(paste(x))
+    names(DNAstr) <- names(x)
+    return(DNAstr)
+}
+
+DNAStringSet_to_dna <- function(x){
+    x_dna <- as_dna(paste(x))
+    names(x_dna) <- names(x)
+    res <- tibble(label = names(x), sequence = x_dna)
+    return(res)
+}
+```
+
+
+```{r}
+# do i want to show both calls or just primary base calls? 
+ss <- readsangerseq("KK1_F_H07.ab1")
+ss_het <- makeBaseCalls(ss, ratio = 0.33)
+chromatogram(ss_het,  showcalls = "both")
+```
+
+

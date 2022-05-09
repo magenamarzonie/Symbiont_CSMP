@@ -257,7 +257,7 @@ poc_data %>%
   group_by(name) %>%
  dplyr:: count() %>%
   arrange(desc(n)) 
-#41 total profiles in Pocillopora 
+#28 profiles found in pocillopora 
 ```
 - Are the DIVs special? 
 -is PSba diversity congruent with profile diversity? 
