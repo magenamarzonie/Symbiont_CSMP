@@ -49,7 +49,7 @@ full_meta2 = full_meta2 %>%
          Reef = as.factor(Reef.x),
          Site = as.factor(Site),
          Exposure = as.factor(Exposure),
-         catBleaching = as.factor(catBleaching),
+         catBleaching = as.numeric(catBleaching),
          Aspect = as.factor(Aspect))
 ```
 
@@ -73,7 +73,7 @@ dim(du_pver)
 
 adonis_meta_pver <- full_meta2 %>%
   dplyr::select(plate_position, Sector, Reef.x, Site, Species, 
-                catBleaching, Depth, DHW, GPS_S = `GPS south`, 
+                catBleaching, Depth, DHW2020 = `DHW`, GPS_S = `GPS south`, 
                 GPS_E = `GPS east`, Aspect, Exposure, maxDHW, 
                 meanDHW, recent.maxDHW, recent.meanDHW, DHW2, 
                 DHW3, DHW4, DHW6, DHW8, DHW9, returnDHW3, returnDHW4, 
@@ -88,12 +88,12 @@ adonis_meta_pver <- full_meta2 %>%
 # Make a correlation matrix of numeric variables
 cm_pver <- cor(adonis_meta_pver %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
                                       recent.meanDHW, DHW3, DHW4, DHW6, DHW8, 
-                                      DHW9, rangeSST, varSST, MMM, GPS_S))
+                                      DHW9, rangeSST, varSST, MMM, GPS_S, DHW2020))
 library(corrplot)
 corrplot(cm_pver) # Clearly a lot of the DHW terms are positively related and approaching redundant
 
 # Check the vif scores of the full model
-ord_pver_full <- dbrda(dist_pver ~  Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S, data=adonis_meta_pver)
+ord_pver_full <- dbrda(dist_pver ~  Depth + maxDHW + catBleaching + DHW2020 + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S + GPS_E + DHW2020 + catBleaching, data=adonis_meta_pver)
 sort(vif.cca(ord_pver_full)) 
 # according to vif.cca documentation, values over 10 indicate redundant constraints
     #      Depth           DHW6           DHW3  recent.maxDHW           DHW8         maxDHW           DHW9           DHW4        meanDHW       rangeSST 
@@ -102,41 +102,39 @@ sort(vif.cca(ord_pver_full))
     # 134.792127     188.566323     190.258298     418.940058
 
 # Reduce the model (consult the corplot and vif scores)
-ord_pver <- dbrda(dist_pver ~ Depth + DHW3 + DHW6 + recent.maxDHW + varSST + GPS_S, data=adonis_meta_pver)
+ord_pver <- dbrda(dist_pver ~ Depth + DHW3 + DHW6 + recent.maxDHW + catBleaching + DHW2020 + varSST + GPS_S, data=adonis_meta_pver)
 
 # Re check the new vif scores
 sort(vif.cca(ord_pver))
-# Depth          DHW3          DHW6 recent.maxDHW         GPS_S      rangeSST 
-#      1.101216      1.298297      1.520353      1.705474      1.722712      2.315683 
+  # Depth          DHW3 recent.maxDHW          DHW6         GPS_S        varSST 
+  #    1.076655      1.314088      1.626934      1.784354      2.039474      2.938100 
 
 # Use ordistep to further refine the model
 os_pver_backward <- ordistep(ord_pver, direction = "backward", trace = FALSE)
 anova(os_pver_backward, by = 'margin')
+plot(os_pver_backward)
 
+#extract scores
 pver_scores <- as.data.frame(scores(os_pver_backward, display = "sites")) %>%
   tibble::rownames_to_column(var = "plate_position") %>%
   left_join(., adonis_meta_pver %>% tibble::rownames_to_column(var = "plate_position"))
 
+#extract vectors
 pver_vectors <- as.data.frame(os_pver_backward$CCA$biplot) %>%
   tibble::rownames_to_column(var = "factors")
 
-ggplot(pver_scores, aes(x = dbRDA1, y = dbRDA2)) +
-  geom_point(aes(fill = GPS_S), size = 4, shape = 21) +
+#plot PCoA
+g1 = ggplot(pver_scores, aes(x = dbRDA1, y = dbRDA2)) +
+  geom_point(aes(fill = Reef.x), size = 4, shape = 21) +
   #geom_encircle(aes(group = k), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
   geom_text(data = pver_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 3) +
   geom_segment(data = pver_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.8, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
   theme(legend.position = "right", aspect.ratio = 1) +
-  scale_fill_viridis_c(option = "magma")
+  scale_fill_viridis_d(option = "magma")
 
-plot(os_pver_backward)
-
-#forward model does not take collinearity into account, as you can see by 7 predictors (many of which likely have high VIF scores)
-#both will default to 'backward' if scope is not defined in model
-
+g1
 ```
-```{r}
-corrplot(cm_pver)
-```
+
 
 
 **P. meandrina** 
@@ -147,7 +145,7 @@ dim(du_pmea)
 
 adonis_meta_pmea <- full_meta2 %>%
   dplyr::select(plate_position, Sector, Reef.x, Site, Species, 
-                catBleaching, Depth, DHW, GPS_S = `GPS south`, 
+                catBleaching, Depth, DHW2020 = `DHW`, catBleaching, GPS_S = `GPS south`, 
                 GPS_E = `GPS east`, Aspect, Exposure, maxDHW, 
                 meanDHW, recent.maxDHW, recent.meanDHW, DHW2, 
                 DHW3, DHW4, DHW6, DHW8, DHW9, returnDHW3, returnDHW4, 
@@ -161,12 +159,12 @@ adonis_meta_pmea <- full_meta2 %>%
 # Make a correlation matrix of numeric variables
 cm <- cor(adonis_meta_pmea %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
                                       recent.meanDHW, DHW3, DHW4, DHW6, DHW8, 
-                                      DHW9, rangeSST, varSST, MMM, GPS_S))
+                                      DHW9, rangeSST, varSST, MMM, GPS_S, catBleaching, DHW2020))
 library(corrplot)
 corrplot(cm) # Clearly a lot of the DHW terms are positively related and approaching redundant
 
 # Check the vif scores of the full model
-ord_pmea_full <- dbrda(dist_pmea ~ Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S, data=adonis_meta_pmea)
+ord_pmea_full <- dbrda(dist_pmea ~ Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S + DHW2020 + catBleaching, data=adonis_meta_pmea)
 sort(vif.cca(ord_pmea_full)) 
 # Depth           DHW4           DHW6           DHW9           DHW8         maxDHW           DHW3  recent.maxDHW        meanDHW       rangeSST recent.meanDHW         varSST 
 #       1.961623       5.524548       6.432968      10.005341      10.535683      11.883727      12.147581      13.755357      56.646502      67.138168     133.177017     155.900084 
@@ -174,17 +172,25 @@ sort(vif.cca(ord_pmea_full))
 #     216.759822     414.329321  
 
 # Reduce the model (consult the corplot and vif scores)
-ord_pmea <- dbrda(dist_pmea ~ Depth + DHW3 + DHW6 + recent.maxDHW + varSST + GPS_S, data = adonis_meta_pmea)
-
+ord_pmea <- dbrda(dist_pmea ~ Depth + DHW3 + DHW6 + recent.maxDHW + catBleaching + DHW2020 + varSST + GPS_S, data = adonis_meta_pmea)
 
 # Re check the new vif scores
 sort(vif.cca(ord_pmea))
-# Depth          DHW3 recent.maxDHW      rangeSST          DHW6         GPS_S 
-#      1.420261      1.550909      2.024239      2.425726      3.050987      3.653113 
+ # catBleaching         Depth          DHW3 recent.maxDHW        varSST          DHW6       DHW2020         GPS_S 
+ #     1.163363      1.422231      1.891411      2.247049      4.144833      5.076538     10.220901     12.225265 
 
 # Use ordistep to further refine the model
 os_pmea_backward <- ordistep(ord_pmea, direction = "backward")
 anova(os_pmea_backward, by = 'margin')
+plot(os_pmea_backward)
+
+os_pmea_gps <- ordistep(ord_pmea_gps, direction = "backward")
+anova(os_pmea_gps, by = 'margin')
+plot(os_pmea_gps)
+
+os_pmea_dhw <- ordistep(ord_pmea_dhw, direction = "backward")
+anova(os_pmea_dhw, by = 'margin')
+plot(os_pmea_dhw)
 
 pmea_scores <- as.data.frame(scores(os_pmea_backward, display = "sites")) %>%
   tibble::rownames_to_column(var = "plate_position") %>%
@@ -193,16 +199,17 @@ pmea_scores <- as.data.frame(scores(os_pmea_backward, display = "sites")) %>%
 pmea_vectors <- as.data.frame(os_pmea_backward$CCA$biplot) %>%
   tibble::rownames_to_column(var = "factors")
 
-ggplot(pmea_scores, aes(x = dbRDA1, y = dbRDA2)) +
-  geom_point(aes(fill = GPS_S), size = 4, shape = 21) +
+g2 = ggplot(pmea_scores, aes(x = dbRDA1, y = dbRDA2)) +
+  geom_point(aes(fill = Reef.x), size = 4, shape = 21) +
   #ggalt::geom_encircle(aes(group = Reef.x), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
   #facet_wrap(~Reef.x) +
   geom_text(data = pmea_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
   geom_segment(data = pmea_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
   theme(legend.position = "right", aspect.ratio = 1) +
-  scale_fill_viridis_c(option = "magma")
+  scale_fill_viridis_d(option = "magma")
 
-plot(os_pmea_backward)
+g2
+
 ```
 
 
@@ -213,7 +220,7 @@ dim(du_punk)
 
 adonis_meta_punk <- full_meta2 %>%
   dplyr::select(plate_position, Sector, Reef.x, Site, Species, 
-                catBleaching, Depth, DHW, GPS_S = `GPS south`, 
+                catBleaching, Depth, DHW2020 = `DHW`, GPS_S = `GPS south`, 
                 GPS_E = `GPS east`, Aspect, Exposure, maxDHW, 
                 meanDHW, recent.maxDHW, recent.meanDHW, DHW2, 
                 DHW3, DHW4, DHW6, DHW8, DHW9, returnDHW3, returnDHW4, 
@@ -228,12 +235,12 @@ adonis_meta_punk <- full_meta2 %>%
 # Make a correlation matrix of numeric variables
 cm_punk <- cor(adonis_meta_punk %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
                                       recent.meanDHW, DHW3, DHW4, DHW6, DHW8, 
-                                      DHW9, rangeSST, varSST, MMM, GPS_S))
+                                      DHW9, rangeSST, varSST, MMM, GPS_S, catBleaching, DHW2020))
 library(corrplot)
 corrplot(cm_punk) # Clearly a lot of the DHW terms are positively related and approaching redundant
 
 # Check the vif scores of the full model
-ord_punk_full <- dbrda(dist_punk ~  Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S, data=adonis_meta_punk)
+ord_punk_full <- dbrda(dist_punk ~  Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S + catBleaching + DHW2020, data=adonis_meta_punk)
 sort(vif.cca(ord_punk_full)) 
 # according to vif.cca documentation, values over 10 indicate redundant constraints
     #  Depth           DHW6           DHW8           DHW3           DHW4           DHW9 
@@ -244,14 +251,17 @@ sort(vif.cca(ord_punk_full))
     # 735.291524     780.690427 
 
 # Reduce the model (consult the corplot and vif scores)
-ord_punk <- dbrda(dist_punk ~ Depth + DHW3 + DHW6 + recent.maxDHW + varSST + GPS_S , data=adonis_meta_punk)
+ord_punk <- dbrda(dist_punk ~ Depth + DHW3 + DHW6 + recent.maxDHW + catBleaching + DHW2020 + varSST + GPS_S , data=adonis_meta_punk)
 
 # Re check the new vif scores
 sort(vif.cca(ord_punk))
+     #    Depth          DHW3        varSST recent.maxDHW          DHW6         GPS_S 
+     # 1.494017      2.831416      3.215707      3.781945      6.553586      6.997421 
 
 # Use ordistep to further refine the model
 os_punk_backward <- ordistep(ord_punk, direction = "backward", trace = FALSE)
 anova(os_punk_backward, by = 'margin')
+plot(os_punk_backward)
 
 
 punk_scores <- as.data.frame(scores(os_punk_backward, display = "sites")) %>%
@@ -261,16 +271,17 @@ punk_scores <- as.data.frame(scores(os_punk_backward, display = "sites")) %>%
 punk_vectors <- as.data.frame(os_punk_backward$CCA$biplot) %>%
   tibble::rownames_to_column(var = "factors")
 
-ggplot(punk_scores, aes(x = dbRDA1, y = dbRDA2)) +
-  geom_point(aes(fill = GPS_S), size = 4, shape = 21) +
+g3 = ggplot(punk_scores, aes(x = dbRDA1, y = dbRDA2)) +
+  geom_point(aes(fill = Reef.x), size = 4, shape = 21) +
   #ggalt::geom_encircle(aes(group = Reef.x), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
   #facet_wrap(~Reef.x) +
   geom_text(data = punk_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
   geom_segment(data = punk_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
   theme(legend.position = "right", aspect.ratio = 1) +
-  scale_fill_viridis_c(option = "magma")
+  scale_fill_viridis_d(option = "magma")
 
-plot(os_punk_backward)
+g3
+
 ```
 
 
@@ -282,7 +293,7 @@ dim(du_acro)
 
 adonis_meta_acro <- full_meta2 %>%
   dplyr::select(plate_position, Sector, Reef.x, Site, Species, 
-                catBleaching, Depth, DHW, GPS_S = `GPS south`, 
+                catBleaching, Depth, DHW2020 = `DHW`, GPS_S = `GPS south`, 
                 GPS_E = `GPS east`, Aspect, Exposure, maxDHW, 
                 meanDHW, recent.maxDHW, recent.meanDHW, DHW2, 
                 DHW3, DHW4, DHW6, DHW8, DHW9, returnDHW3, returnDHW4, 
@@ -297,12 +308,12 @@ adonis_meta_acro <- full_meta2 %>%
 # Make a correlation matrix of numeric variables
 cm_acro <- cor(adonis_meta_acro %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
                                       recent.meanDHW, DHW3, DHW4, DHW6, DHW8, 
-                                      DHW9, rangeSST, varSST, MMM, GPS_S))
+                                      DHW9, rangeSST, varSST, MMM, GPS_S, DHW2020, catBleaching))
 library(corrplot)
 corrplot(cm_acro) # Clearly a lot of the DHW terms are positively related and approaching redundant
 
 # Check the vif scores of the full model
-ord_acro_full <- dbrda(dist_acro ~  Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S, data=adonis_meta_acro)
+ord_acro_full <- dbrda(dist_acro ~  Depth + maxDHW + meanDHW + recent.maxDHW + recent.meanDHW + DHW3 + DHW4 + DHW6 + DHW8 + DHW9 + rangeSST + varSST + MMM + GPS_S + catBleaching + DHW2020, data=adonis_meta_acro)
 sort(vif.cca(ord_acro_full)) 
 # according to vif.cca documentation, values over 10 indicate redundant constraints
     #  Depth           DHW6           DHW8           DHW3           DHW4           DHW9 
@@ -313,16 +324,22 @@ sort(vif.cca(ord_acro_full))
     # 735.291524     780.690427 
 
 # Reduce the model (consult the corplot and vif scores)
-ord_acro <- dbrda(dist_acro ~ Depth + DHW3 + DHW6 + recent.maxDHW + varSST + GPS_S , data=adonis_meta_acro)
+ord_acro <- dbrda(dist_acro ~ Depth + DHW3 + DHW6 + recent.maxDHW + varSST + GPS_S +DHW2020 + catBleaching, data=adonis_meta_acro)
 
+ord_acro_gps <- dbrda(dist_acro ~ Depth + DHW3 + DHW6 + recent.maxDHW + varSST + GPS_S + catBleaching, data=adonis_meta_acro)
+
+ord_acro_dhw <- dbrda(dist_acro ~ Depth + DHW3 + DHW6 + recent.maxDHW + varSST + DHW2020 + catBleaching, data=adonis_meta_acro)
 
 # Re check the new vif scores
 sort(vif.cca(ord_acro))
+  # Depth          DHW3          DHW6 recent.maxDHW        varSST         GPS_S 
+  #    1.296128      1.326525      1.449396      1.653195      2.003441      2.577150 
+
 
 # Use ordistep to further refine the model
 os_acro_backward <- ordistep(ord_acro, direction = "backward", trace = FALSE)
 anova(os_acro_backward, by = 'margin')
-
+plot(os_acro_backward)
 
 acro_scores <- as.data.frame(scores(os_acro_backward, display = "sites")) %>%
   tibble::rownames_to_column(var = "plate_position") %>%
@@ -331,20 +348,51 @@ acro_scores <- as.data.frame(scores(os_acro_backward, display = "sites")) %>%
 acro_vectors <- as.data.frame(os_acro_backward$CCA$biplot) %>%
   tibble::rownames_to_column(var = "factors")
 
-ggplot(acro_scores, aes(x = dbRDA1, y = dbRDA2)) +
-  geom_point(aes(fill = GPS_S), size = 4, shape = 21) +
+g4 = ggplot(acro_scores, aes(x = dbRDA1, y = dbRDA2)) +
+  geom_point(aes(fill = Reef.x), size = 4, shape = 21) +
   #ggalt::geom_encircle(aes(group = Reef.x), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
   #facet_wrap(~Reef.x) +
   geom_text(data = acro_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
   geom_segment(data = acro_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
   theme(legend.position = "right", aspect.ratio = 1) +
-  scale_fill_viridis_c(option = "magma")
+  scale_fill_viridis_d(option = "magma")
 
-plot(os_acro_backward)
+g4
 ```
 
 
+```{r}
+library(ggpubr)
+Fig3 = ggarrange (g1 + g2 + g3 + g4, nrow = 1) + 
+    theme(axis.text.x = element_blank(),
+          plot.margin  = margin(0.1,0.1,0,.6, unit = "cm"), 
+                  legend.title = element_text(size = 14, angle = -90),
+        legend.text = element_text(size = 14)) +
+    guides(fill = guide_colourbar(title.position = "right", barheight = 17, barwidth = .8))
+    
+Fig3
+
+```
 
 
+**Significant factors for symbionts within each host species ** 
+P. verrucosa: Depth *, DHW3 *, latitude ***
+P. meandrina: DHW6 *, varSST **, latitude ***
+P. unknown: varSST *, latitude ***
+A. humilis: Depth *, DHW3 *, DHW6 ***, recent.maxDHW ***, latitude ***
+
+Acropora is the less heat tolerant species. Also appears that symbiont communities are more sensitive to several enviro. factors compared to Pocillopora (more heat tolerant species)
+
+Hierarchy of symbiont structuring as follows: host species > latitude > thermal history > depth
+Symbiont species in P. meandrina and P. unknown (C. Latusorum) has consistent response to enviroment irrespective of host species. Responds to latitude and variability in SST, regardless of which host species it is living in. 
+
+**Figures for manuscript** 
+Fig 1: map (half page)
+Fig 2: (full page) 3 trees + distances
+- remove GPS south and replace with reef
+- character matrix with species, reef and clade for groupings 
+Fig 3: (half) ORDINATION plots
+Fig 4: (half) tanglegram 
 
 
+It seems that within hosts, the symbiont communities respond to different environmental pressures. Communities of C. latusorum have 
