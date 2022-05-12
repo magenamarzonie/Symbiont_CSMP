@@ -274,8 +274,8 @@ ggplot(final_long_sequences, aes(y = sample_id, x = x)) +
       theme(aspect.ratio = 0.3,
             axis.title.y = element_blank()) +
       scale_x_continuous(expand = c(0, 0)) +
-   geom_line(data = data.frame(x = c(0, n1) + 0.5, y = rep(2:n2, each = 2) - 0.5),
-            aes(x = x, y = y, group = y)) + # Horizonal lines
+   #geom_line(data = data.frame(x = c(0, n1) + 0.5, y = rep(2:n2, each = 2) - 0.5),
+            #aes(x = x, y = y, group = y)) + # Horizonal lines
   xlab("Position")
 ```
 

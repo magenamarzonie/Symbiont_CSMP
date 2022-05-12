@@ -49,7 +49,7 @@ full_meta2 = full_meta2 %>%
          Reef = as.factor(Reef.x),
          Site = as.factor(Site),
          Exposure = as.factor(Exposure),
-         catBleaching = as.numeric(catBleaching),
+         catBleaching = as.factor(catBleaching),
          Aspect = as.factor(Aspect))
 ```
 
@@ -102,7 +102,7 @@ sort(vif.cca(ord_pver_full))
     # 134.792127     188.566323     190.258298     418.940058
 
 # Reduce the model (consult the corplot and vif scores)
-ord_pver <- dbrda(dist_pver ~ GPS_S + Depth + DHW3 + DHW6 + recent.maxDHW + catBleaching + DHW2020 + varSST, data=adonis_meta_pver)
+ord_pver <- dbrda(dist_pver ~ GPS_S + Depth + DHW3 + DHW6 + recent.maxDHW + catBleaching + varSST, data=adonis_meta_pver)
 
 # Re check the new vif scores
 sort(vif.cca(ord_pver))
@@ -318,7 +318,7 @@ sort(vif.cca(ord_acro_full))
     # 735.291524     780.690427 
 
 # Reduce the model (consult the corplot and vif scores)
-ord_acro <- dbrda(dist_acro ~ GPS_S + Depth + DHW3 + DHW6 + recent.maxDHW + catBleaching + DHW2020 + varSST, data=adonis_meta_acro)
+ord_acro <- dbrda(dist_acro ~ GPS_S + Depth + DHW3 + DHW6 + recent.maxDHW + catBleaching  + varSST, data=adonis_meta_acro)
 
 # Re check the new vif scores
 sort(vif.cca(ord_acro))
