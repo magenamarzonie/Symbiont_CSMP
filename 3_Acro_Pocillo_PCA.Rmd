@@ -87,7 +87,7 @@ adonis_meta_pver <- full_meta2 %>%
 
 # Make a correlation matrix of numeric variables
 cm_pver <- cor(adonis_meta_pver %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
-                                      recent.meanDHW, DHW3, DHW4, DHW6, DHW8, 
+                                      recent.meanDHW, DHW3,  DHW6, DHW8, 
                                       DHW9, rangeSST, varSST, MMM, GPS_S, DHW2020))
 library(corrplot)
 corrplot(cm_pver) # Clearly a lot of the DHW terms are positively related and approaching redundant
@@ -102,12 +102,14 @@ sort(vif.cca(ord_pver_full))
     # 134.792127     188.566323     190.258298     418.940058
 
 # Reduce the model (consult the corplot and vif scores)
-ord_pver <- dbrda(dist_pver ~ Depth + DHW3 + DHW6 + recent.maxDHW + catBleaching + DHW2020 + varSST + GPS_S, data=adonis_meta_pver)
+ord_pver <- dbrda(dist_pver ~ GPS_S + Depth + DHW3 + DHW6 + recent.maxDHW + catBleaching + DHW2020 + varSST, data=adonis_meta_pver)
 
 # Re check the new vif scores
 sort(vif.cca(ord_pver))
-  # Depth          DHW3 recent.maxDHW          DHW6         GPS_S        varSST 
-  #    1.076655      1.314088      1.626934      1.784354      2.039474      2.938100 
+# catBleaching         Depth          DHW3 recent.maxDHW        varSST          DHW6         GPS_S 
+#      1.034575      1.123910      1.428661      1.809345      3.699175      8.465436     10.678142 
+#       DHW2020 
+#     14.428485 
 
 # Use ordistep to further refine the model
 os_pver_backward <- ordistep(ord_pver, direction = "backward", trace = FALSE)
@@ -129,7 +131,7 @@ g1 = ggplot(pver_scores, aes(x = dbRDA1, y = dbRDA2)) +
   #geom_encircle(aes(group = k), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
   geom_text(data = pver_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 3) +
   geom_segment(data = pver_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.8, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
-  theme(legend.position = "right", aspect.ratio = 1) +
+  theme(legend.position = "none", aspect.ratio = 1) +
   scale_fill_viridis_d(option = "magma")
 
 g1
@@ -172,7 +174,7 @@ sort(vif.cca(ord_pmea_full))
 #     216.759822     414.329321  
 
 # Reduce the model (consult the corplot and vif scores)
-ord_pmea <- dbrda(dist_pmea ~ Depth + DHW3 + DHW6 + recent.maxDHW + catBleaching + DHW2020 + varSST + GPS_S, data = adonis_meta_pmea)
+ord_pmea <- dbrda(dist_pmea ~ GPS_S + Depth + DHW3 + DHW6 + recent.maxDHW + catBleaching + DHW2020 + varSST, data = adonis_meta_pmea)
 
 # Re check the new vif scores
 sort(vif.cca(ord_pmea))
@@ -183,14 +185,6 @@ sort(vif.cca(ord_pmea))
 os_pmea_backward <- ordistep(ord_pmea, direction = "backward")
 anova(os_pmea_backward, by = 'margin')
 plot(os_pmea_backward)
-
-os_pmea_gps <- ordistep(ord_pmea_gps, direction = "backward")
-anova(os_pmea_gps, by = 'margin')
-plot(os_pmea_gps)
-
-os_pmea_dhw <- ordistep(ord_pmea_dhw, direction = "backward")
-anova(os_pmea_dhw, by = 'margin')
-plot(os_pmea_dhw)
 
 pmea_scores <- as.data.frame(scores(os_pmea_backward, display = "sites")) %>%
   tibble::rownames_to_column(var = "plate_position") %>%
@@ -251,7 +245,7 @@ sort(vif.cca(ord_punk_full))
     # 735.291524     780.690427 
 
 # Reduce the model (consult the corplot and vif scores)
-ord_punk <- dbrda(dist_punk ~ Depth + DHW3 + DHW6 + recent.maxDHW + catBleaching + DHW2020 + varSST + GPS_S , data=adonis_meta_punk)
+ord_punk <- dbrda(dist_punk ~ GPS_S + Depth + DHW3 + DHW6 + recent.maxDHW + catBleaching + DHW2020 + varSST, data=adonis_meta_punk)
 
 # Re check the new vif scores
 sort(vif.cca(ord_punk))
@@ -277,7 +271,7 @@ g3 = ggplot(punk_scores, aes(x = dbRDA1, y = dbRDA2)) +
   #facet_wrap(~Reef.x) +
   geom_text(data = punk_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
   geom_segment(data = punk_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
-  theme(legend.position = "right", aspect.ratio = 1) +
+  theme(legend.position = "none", aspect.ratio = 1) +
   scale_fill_viridis_d(option = "magma")
 
 g3
@@ -324,11 +318,7 @@ sort(vif.cca(ord_acro_full))
     # 735.291524     780.690427 
 
 # Reduce the model (consult the corplot and vif scores)
-ord_acro <- dbrda(dist_acro ~ Depth + DHW3 + DHW6 + recent.maxDHW + varSST + GPS_S +DHW2020 + catBleaching, data=adonis_meta_acro)
-
-ord_acro_gps <- dbrda(dist_acro ~ Depth + DHW3 + DHW6 + recent.maxDHW + varSST + GPS_S + catBleaching, data=adonis_meta_acro)
-
-ord_acro_dhw <- dbrda(dist_acro ~ Depth + DHW3 + DHW6 + recent.maxDHW + varSST + DHW2020 + catBleaching, data=adonis_meta_acro)
+ord_acro <- dbrda(dist_acro ~ GPS_S + Depth + DHW3 + DHW6 + recent.maxDHW + catBleaching + DHW2020 + varSST, data=adonis_meta_acro)
 
 # Re check the new vif scores
 sort(vif.cca(ord_acro))
@@ -354,7 +344,7 @@ g4 = ggplot(acro_scores, aes(x = dbRDA1, y = dbRDA2)) +
   #facet_wrap(~Reef.x) +
   geom_text(data = acro_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
   geom_segment(data = acro_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
-  theme(legend.position = "right", aspect.ratio = 1) +
+  theme(legend.position = "none", aspect.ratio = 1) + 
   scale_fill_viridis_d(option = "magma")
 
 g4
@@ -364,14 +354,25 @@ g4
 ```{r}
 library(ggpubr)
 Fig3 = ggarrange (g1 + g2 + g3 + g4, nrow = 1) + 
-    theme(axis.text.x = element_blank(),
-          plot.margin  = margin(0.1,0.1,0,.6, unit = "cm"), 
-                  legend.title = element_text(size = 14, angle = -90),
-        legend.text = element_text(size = 14)) +
-    guides(fill = guide_colourbar(title.position = "right", barheight = 17, barwidth = .8))
+    theme_classic() +
+  theme(axis.line = element_blank(),
+        panel.border = element_rect(size = .5, fill = "transparent"),
+        legend.title = element_blank(),
+        legend.background = element_rect(fill = "transparent"),
+        legend.position = c(0.5, 1),
+        legend.text = element_text(face = "italic", size = 7, family = "Helvetica"),
+        legend.key.size = unit(2, units = "mm"),
+        legend.margin = margin(0,0,0,0, unit = "mm"),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 8, family = "Helvetica"),
+        axis.title = element_text(size = 9, family = "Helvetica"))  
     
 Fig3
 
+
+#change so it's just one row
+#remove x and y axis labels
+#make colour scheme stay the same for each reef across 4 host species
 ```
 
 

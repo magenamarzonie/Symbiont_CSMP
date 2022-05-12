@@ -15,7 +15,9 @@ library(bioseq)
 library(DECIPHER)
 library(phangorn)
 library(tidyverse)
+``` 
 
+```{r}
 read_fasta_df <- function(file = ""){
     fasta <- readLines(file)
     ind <- grep(">", fasta)
@@ -113,7 +115,6 @@ gg_chromatogram(file = "/Users/magenamarzonie/Library/CloudStorage/OneDrive-Jame
 ```
 
 # importing all the forward .fa or .txt files (same thing)
-
 ```{r}
 f_all <- sort(list.files(path = "/Users/magenamarzonie/Library/CloudStorage/OneDrive-JamesCookUniversity/PhD Chapter 2/Psba Sanger 2022/Raw_Psba_Files/", pattern = "_74_Forw.txt", full.names = TRUE))
 r_all <- sort(list.files(path = "/Users/magenamarzonie/Library/CloudStorage/OneDrive-JamesCookUniversity/PhD Chapter 2/Psba Sanger 2022/Raw_Psba_Files/", pattern = "_78_Rev.txt", full.names = TRUE))
