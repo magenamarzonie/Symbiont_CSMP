@@ -414,5 +414,6 @@ dist_pmea <- as.dist(du_pmea, diag = FALSE)
 dim(du_pmea)
 
 glm.1a = glmmTMB(dist_pmea ~ DHW3 + (1|Reef.x), data = adonis_meta_pmea)
+glm.1b = glmmTMB(dist_pmea ~ GPS_S, data = adonis_meta_pmea)
 ```
 
