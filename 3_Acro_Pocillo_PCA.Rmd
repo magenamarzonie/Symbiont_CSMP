@@ -398,22 +398,3 @@ Fig 4: (half) tanglegram
 
 It seems that within hosts, the symbiont communities respond to different environmental pressures. Communities of C. latusorum have 
 
-
-Run GLM to look at effect of each factor
-```{r}
-library(glmmTMB)
-library(MuMIn)
-library(DHARMa)
-```
-
-
-
-# looking at variables to see how variance is partitioned for each factor in relation to the symbiont community structure
-```{r}
-dist_pmea <- as.dist(du_pmea, diag = FALSE)
-dim(du_pmea)
-
-glm.1a = glmmTMB(dist_pmea ~ DHW3 + (1|Reef.x), data = adonis_meta_pmea)
-glm.1b = glmmTMB(dist_pmea ~ GPS_S, data = adonis_meta_pmea)
-```
-
