@@ -393,3 +393,9 @@ save(profile_data, file = "Data/profile_data.Rdata")
 
 This is a test by Matt to see if git works on new laptop
 
+
+Fig 1. Map of all sites, host species, and samples collected per host species
+```{r}
+
+```
+

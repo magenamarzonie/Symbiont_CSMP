@@ -165,7 +165,7 @@ adonis_meta_pmea <- full_meta2 %>%
 # Make a correlation matrix of numeric variables
 cm <- cor(adonis_meta_pmea %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
                                       recent.meanDHW, DHW3, DHW4, DHW6, DHW8, 
-                                      DHW9, rangeSST, varSST, MMM, GPS_S, catBleaching, DHW2020))
+                                      DHW9, rangeSST, varSST, MMM, GPS_S, DHW2020))
 library(corrplot)
 corrplot(cm) # Clearly a lot of the DHW terms are positively related and approaching redundant
 
@@ -233,7 +233,7 @@ adonis_meta_punk <- full_meta2 %>%
 # Make a correlation matrix of numeric variables
 cm_punk <- cor(adonis_meta_punk %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
                                       recent.meanDHW, DHW3, DHW4, DHW6, DHW8, 
-                                      DHW9, rangeSST, varSST, MMM, GPS_S, catBleaching, DHW2020))
+                                      DHW9, rangeSST, varSST, MMM, GPS_S, DHW2020))
 library(corrplot)
 corrplot(cm_punk) # Clearly a lot of the DHW terms are positively related and approaching redundant
 
@@ -306,7 +306,7 @@ adonis_meta_acro <- full_meta2 %>%
 # Make a correlation matrix of numeric variables
 cm_acro <- cor(adonis_meta_acro %>% select(Depth, maxDHW, meanDHW, recent.maxDHW, 
                                       recent.meanDHW, DHW3, DHW4, DHW6, DHW8, 
-                                      DHW9, rangeSST, varSST, MMM, GPS_S, DHW2020, catBleaching))
+                                      DHW9, rangeSST, varSST, MMM, GPS_S, DHW2020))
 library(corrplot)
 corrplot(cm_acro) # Clearly a lot of the DHW terms are positively related and approaching redundant
 
