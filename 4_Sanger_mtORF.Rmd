@@ -6,9 +6,6 @@ output: html_document
 ---
 
 
-
-
-
 ```{r}
 library(sangerseqR)
 library(bioseq)
@@ -127,9 +124,9 @@ Generate a metadatafile that matches the sample name (e.g. A03)
 # }
 
 
-f_all <- list.files(path = "/Users/magenamarzonie/Library/CloudStorage/OneDrive-JamesCookUniversity/PhD Chapter 2/mtORF Sanger 2022/mtORF_Raw/", pattern = "mtORF1_B01_FatP6_1.txt", full.names = TRUE)
+f_all <- list.files(path = "/Users/magenamarzonie/Library/CloudStorage/OneDrive-JamesCookUniversity/PhD Chapter 2/mtORF Sanger 2022/mtORF_Raw/", pattern = "mtORF1_G01_FatP6_1.txt", full.names = TRUE)
 
-r_all <- list.files(path = "/Users/magenamarzonie/Library/CloudStorage/OneDrive-JamesCookUniversity/PhD Chapter 2/mtORF Sanger 2022/mtORF_Raw/", pattern = "mtORF1_B01_R_mtORF.txt", full.names = TRUE)
+r_all <- list.files(path = "/Users/magenamarzonie/Library/CloudStorage/OneDrive-JamesCookUniversity/PhD Chapter 2/mtORF Sanger 2022/mtORF_Raw/", pattern = "mtORF1_G01_R_mtORF.txt", full.names = TRUE)
 
 f_all_fasta <- f_all %>%
   map(read_fasta_df) %>% # read in all the files
