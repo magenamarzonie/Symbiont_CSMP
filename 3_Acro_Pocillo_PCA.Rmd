@@ -137,6 +137,9 @@ g1 = ggplot(pver_scores, aes(x = dbRDA1, y = dbRDA2)) +
 g1
 ```
 
+
+
+
 #attemp to run variance partitioning code; not quite working 
 ```{r}
 #varpart(dist_pver ~ Depth + maxDHW + GPS_S, data = adonis_meta_pver)
@@ -354,6 +357,30 @@ g4 = ggplot(acro_scores, aes(x = dbRDA1, y = dbRDA2)) +
 g4
 ```
 
+```{r}
+#which samples are outliers in the acropora ordination? 
+acro_outliers = acro_scores %>% filter(dbRDA2 < -1)
+
+#outlier samples are from Moore, Holmes and Osprey 
+
+acro_new = acro_scores %>% filter(dbRDA2 > -1)
+
+acro_new = acro_scores %>% 
+  filter(plate_position != c("Plate7_D006", "Plate6_E009", "Plate6_G009", "Plate6_D012", "Plate7_H009", "Plate7_A010", "Plate6_B012"))
+
+
+g5 = ggplot(acro_new, aes(x = dbRDA1, y = dbRDA2)) +
+  geom_point(aes(fill = Reef.x), size = 4, shape = 21) +
+  #ggalt::geom_encircle(aes(group = Reef.x), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
+  #facet_wrap(~Reef.x) +
+  geom_text(data = acro_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
+  geom_segment(data = acro_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
+  theme(legend.position = "none", aspect.ratio = 1) + 
+  scale_fill_viridis_d(option = "magma")
+
+g5
+```
+
 
 ```{r}
 library(ggpubr)
@@ -401,59 +428,3 @@ Fig 4: (half) tanglegram
 
 
 It seems that within hosts, the symbiont communities respond to different environmental pressures. Communities of C. latusorum have 
-
-
-
-
-Variance partitioning to assess how each explanatory variable falls out 
-
-```{r}
-data(mite)
-data(mite.env)
-data(mite.pcnm)
-
-# Two explanatory matrices -- Hellinger-transform Y
-# Formula shortcut "~ ." means: use all variables in 'data'.
-mod <- varpart(mite, ~ ., mite.pcnm, data=mite.env, transfo="hel")
-mod
-
-## Use fill colours
-showvarparts(2, bg = c("hotpink","skyblue"))
-plot(mod, bg = c("hotpink","skyblue"))
-# Alternative way of to conduct this partitioning
-# Change the data frame with factors into numeric model matrix
-mm <- model.matrix(~ SubsDens + WatrCont + Substrate + Shrub + Topo, mite.env)[,-1]
-mod <- varpart(decostand(mite, "hel"), mm, mite.pcnm)
-# Test fraction [a] using partial RDA:
-aFrac <- rda(decostand(mite, "hel"), mm, mite.pcnm)
-anova(aFrac, step=200, perm.max=200)
-# RsquareAdj gives the same result as component [a] of varpart
-RsquareAdj(aFrac)
-
-# Three explanatory matrices 
-mod <- varpart(mite, ~ SubsDens + WatrCont, ~ Substrate + Shrub + Topo,
-   mite.pcnm, data=mite.env, transfo="hel")
-mod
-showvarparts(3, bg=2:4)
-plot(mod, bg=2:4)
-# An alternative formulation of the previous model using
-# matrices mm1 amd mm2 and Hellinger transformed species data
-mm1 <- model.matrix(~ SubsDens + WatrCont, mite.env)[,-1]
-mm2 <- model.matrix(~ Substrate + Shrub + Topo, mite.env)[, -1]
-mite.hel <- decostand(mite, "hel")
-mod <- varpart(mite.hel, mm1, mm2, mite.pcnm)
-# Use RDA to test fraction [a]
-# Matrix can be an argument in formula
-rda.result <- rda(mite.hel ~ mm1 + Condition(mm2) +
-   Condition(as.matrix(mite.pcnm)))
-anova(rda.result, step=200, perm.max=200)
-
-# Four explanatory tables
-mod <- varpart(mite, ~ SubsDens + WatrCont, ~Substrate + Shrub + Topo,
-  mite.pcnm[,1:11], mite.pcnm[,12:22], data=mite.env, transfo="hel")
-mod
-plot(mod, bg=2:5)
-# Show values for all partitions by putting 'cutoff' low enough:
-plot(mod, cutoff = -Inf, cex = 0.7, bg=2:5)
-```
-

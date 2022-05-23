@@ -240,9 +240,8 @@ all_data %>%
 
 ```
 
-# Table 1. Sequences data 
+# Table 1. Sequence data 
 Get the above summary sequence statistics into a useful table - Use the gt package
-Ues the gt package. 
 
 # Pocillopora results
 
@@ -319,12 +318,6 @@ poc_data %>%
   group_by(name, Species) %>%
   count() %>%
   arrange(desc(n)) 
-```
-
-
-#Venn diagram to show profile overlap 
-```{r}
-
 ```
 
 
