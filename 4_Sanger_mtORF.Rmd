@@ -1,13 +1,13 @@
 ---
-title: "sanger_mtORF"
-author: "Magena Marzonie"
-date: "09/05/2022"
+title: "mtORF_sanger"
+author: "MNitschke"
+date: "05/05/2022"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+
+
+
 
 ```{r}
 library(sangerseqR)
@@ -63,33 +63,213 @@ DNAStringSet_to_dna <- function(x){
     res <- tibble(label = names(x), sequence = x_dna)
     return(res)
 }
+
+gg_chromatogram <- function (file = "", row_number = 4, ratio = 0.33) 
+{
+    calls <- makeBaseCalls(readsangerseq(file), ratio = 0.33)
+    peak_length <- max(calls@peakPosMatrix, na.rm = TRUE)
+    seq <- primarySeq(calls)
+    seq_length <- str_length(seq)
+    factor <- peak_length/seq_length
+    trace <- calls@traceMatrix %>% as.data.frame() %>% select(A = V1, 
+        C = V2, G = V3, T = V4) %>% mutate(pos = row_number()) %>% 
+        tidyr::pivot_longer(A:T, names_to = "Nucleotide", 
+            values_to = "Intensity") %>% 
+      mutate(facet = rep(x = LETTERS[1:row_number], 
+        each = ceiling(n()/row_number))[1:n()])
+
+  long_seq <- str_split(seq, "") %>%
+  reshape2::melt() %>%
+  group_by(L1) %>%
+  mutate(pos = row_number(),
+         L1 = as.character(L1),
+         y = max(trace$Intensity),
+         Nucleotide = value) %>%
+    mutate(facet = rep(x = LETTERS[1:row_number], 
+        each = ceiling(n()/row_number))[1:n()])
+    
+    theme_set(theme_bw())
+    palette <- c(A = "#6bb04a", G = "#4e76dd", C = "#c89232", T = "#d14d4b")
+    
+    ggplot() + 
+      geom_text(aes(x = pos, y = y, colour = Nucleotide, label = Nucleotide), na.rm = TRUE, long_seq) + 
+      geom_path(aes(x = pos/factor, y = Intensity, group = Nucleotide, colour = Nucleotide), trace) + 
+      facet_wrap(~facet, ncol = 1, scales = "free_x") + 
+      theme(strip.background = element_blank(), strip.text.x = element_blank()) + 
+      scale_color_manual(values = palette) + ylab("Intensity") + 
+      scale_x_continuous(breaks = scales::breaks_width(50)) +
+      xlab("Position")
+}
 ```
 
+# Viewing chromatograms
+
+Use this plot to help decide where the trimming start and stop positions should be
 
 ```{r}
-# do i want to show both calls or just primary base calls? 
-ss <- readsangerseq("/Users/magenamarzonie/Library/CloudStorage/OneDrive-JamesCookUniversity/PhD Chapter 2/mtORF Sanger 2022/mtORF_Raw/mtORF1_A01_FatP6_1.ab1")
-ss_het <- makeBaseCalls(ss, ratio = 0.33)
-chromatogram(ss_het,  showcalls = "both")
+# gg_chromatogram(file = "ps", row_number = 5, ratio = 0.33)
 ```
 
-```{r}
 # importing all the forward .fa or .txt files (same thing)
 
-f_all <- sort(list.files(path = "../Sanger_example/", pattern = "(_F_|.fa)(?:.+)(_F_|.fa)", full.names = TRUE))
-r_all <- sort(list.files(path = "../Sanger_example/", pattern = "(_R_|.fa)(?:.+)(_R_|.fa)", full.names = TRUE))
+Repeat the below section for all samples (do not do it for the Good:Bad, Bad:Good, Bad:Bad samples)
+Generate a metadatafile that matches the sample name (e.g. A03)
 
-f_all
-r_all
+```{r}
+#f_all <- sort(list.files(path = "/Users/magenamarzonie/Library/CloudStorage/OneDrive-JamesCookUniversity/PhD Chapter 2/mtORF Sanger 2022/mtORF_Raw/", pattern = "_FatP6_1.txt", full.names = TRUE))
+#r_all <- sort(list.files(path = "/Users/magenamarzonie/Library/CloudStorage/OneDrive-JamesCookUniversity/PhD Chapter 2/mtORF Sanger 2022/mtORF_Raw/", pattern = "R_mtORF.txt", full.names = TRUE))
+
+# If this map & reduce code chunk produces the error: ' incomplete final line found on ..', run this code first to add \n to end of each txt file. WARNING - this modifies the original final! Create backups first.
+
+#for(i in 1:length(f_all)){
+  # cat("\n", file = f_all[i], append = TRUE)
+  # cat("\n", file = r_all[i], append = TRUE)
+# }
+
+
+f_all <- list.files(path = "/Users/magenamarzonie/Library/CloudStorage/OneDrive-JamesCookUniversity/PhD Chapter 2/mtORF Sanger 2022/mtORF_Raw/", pattern = "mtORF1_B01_FatP6_1.txt", full.names = TRUE)
+
+r_all <- list.files(path = "/Users/magenamarzonie/Library/CloudStorage/OneDrive-JamesCookUniversity/PhD Chapter 2/mtORF Sanger 2022/mtORF_Raw/", pattern = "mtORF1_B01_R_mtORF.txt", full.names = TRUE)
 
 f_all_fasta <- f_all %>%
   map(read_fasta_df) %>% # read in all the files
-  reduce(rbind) # reduce with rbind into one dataframe
+  purrr::reduce(rbind) # reduce with rbind into one dataframe
 
 r_all_fasta <- r_all %>%
   map(read_fasta_df) %>% # read in all the files
-  reduce(rbind) # reduce with rbind into one dataframe
+  purrr::reduce(rbind) # reduce with rbind into one dataframe
+
+# apply the trimming parameters to start and end of the sequences (example, remove 10 bases from start and end)
+
+
+f_all_fasta_sub <- f_all_fasta %>%
+  mutate(sequence = str_sub(sequence, start = 49, end = 740)) # start = trim + 1, end = trim + 1
+
+r_all_fasta_sub <- r_all_fasta %>%
+  mutate(sequence = str_sub(sequence, start = 62, end = 780)) # start = trim + 1, end = trim + 1
+
+# convert to format for DECIPHER and reverse complement the reverse sequence
+
+f_dss <- f_all_fasta_sub %>%
+  deframe() %>%
+  as_dna() %>%
+  dna_to_DNAStringset()
+
+r_dss <- r_all_fasta_sub %>%
+  deframe() %>%
+  as_dna() %>%
+  dna_to_DNAStringset() %>%
+  reverseComplement()
+
+pair_list <- list()
+for(i in 1:length(f_dss)){
+  ss <- DNAStringSet(c(f_dss[i], r_dss[i]))
+  pair_list[[i]] <- ss
+}
+
+# Align the sample pairs
+
+alignment_list <- list()
+for(i in 1:length(pair_list)){
+  alignment <- AlignSeqs(pair_list[[i]])
+  alignment_list[[i]] <- alignment
+}
+
+# View the alignments
+
+palette <- c("A" = "#6bb04a", "G" = "#4e76dd", "C" = "#c89232", "T" = "#d14d4b", "N" = "black", "-" = "white", "K" = "purple", "variable_site" = "grey60", "invariable_site" = "grey90")
+
+aligned_df <- data.frame()
+for(i in 1:length(alignment_list)){
+  a_pair <- alignment_list[[i]] %>% writeXStringSet("temp_file.fasta")
+  a_df <- read_fasta_df("temp_file.fasta")
+  aligned_df <- rbind(aligned_df, a_df)
+}
+
+aligned_plotting <- aligned_df %>%
+  mutate(sample_id = str_sub(label, 23, 25)) # create a metadata column that identifies the sample
+
+# Create profile key
+key <- aligned_plotting %>%
+  tibble::rownames_to_column(var = "id")
+
+# Create long dataframe for ggplot
+long_sequences <- str_split(aligned_plotting$sequence, "") %>%
+  reshape2::melt() %>%
+  group_by(L1) %>%
+  mutate(x = row_number(),
+         L1 = as.character(L1)) %>%
+  left_join(., key, by = c("L1" = "id")) %>%
+  ungroup()
+
+# Plot alignment
+ggplot(long_sequences, aes(y = label, x = x)) +
+      geom_tile(aes(fill = value), size = 1, name = "base") +
+      facet_wrap(~ sample_id, ncol = 1, scales = "free_y") +
+      scale_fill_manual(values = palette) +
+      theme(aspect.ratio = 0.3,
+            axis.title.y = element_blank()) +
+      scale_x_continuous(expand = c(0, 0)) +
+    xlab("Position")
 ```
 
 
+# Create the consensus sequences
+```{r}
+consensus_df <- list()
+for(i in 1:length(alignment_list)){
+  a_con <- alignment_list[[i]] %>% ConsensusSequence()
+  names(a_con) <- names(alignment_list[[i]])[1]
+  consensus_df[[i]] <- a_con
+}
+```
+
+# Align the consensus sequences
+```{r}
+aligned_consensus <- AlignSeqs(do.call(c, consensus_df))
+writeXStringSet(aligned_consensus, "consensus_sequence_alignment.fasta")
+```
+
+# Visualise the alignment
+
+```{r}
+final_alignment <- read_fasta_df("consensus_sequence_alignment.fasta") %>%
+  mutate(sample_id = str_sub(label, 7, 10)) # create a metadata column that identifies the sample
+
+# Create profile key
+final_key <- final_alignment %>%
+  tibble::rownames_to_column(var = "id") %>%
+  mutate(sample_id = str_sub(label, 23, 25))
+
+# Create long dataframe for ggplot
+final_long_sequences <- str_split(final_alignment$sequence, "") %>%
+  reshape2::melt() %>%
+  group_by(L1) %>%
+  mutate(x = row_number(),
+         L1 = as.character(L1)) %>%
+  left_join(., final_key, by = c("L1" = "id")) %>%
+  ungroup()
+
+matrix_block <- final_long_sequences %>%
+  group_by(x) %>%
+  mutate(variant = case_when(length(unique(value)) > 1 ~ "variable_site",
+                             length(unique(value)) == 1 ~ "invariable_site")) %>%
+  sample_n(1) %>%
+  mutate(label = "variable_sites")
+
+n1 <- length(unique(final_long_sequences$x))
+n2 <- length(unique(final_long_sequences$sample_id))
+
+# Plot alignment
+ggplot(final_long_sequences, aes(y = sample_id, x = x)) +
+      geom_tile(aes(fill = value), height = 1) +
+      geom_tile(aes(x = x, y = label, fill = variant), height = 1, matrix_block) +
+      scale_fill_manual(values = palette, name = "base") +
+      theme(aspect.ratio = 0.3,
+            axis.title.y = element_blank()) +
+      scale_x_continuous(expand = c(0, 0)) +
+   geom_line(data = data.frame(x = c(0, n1) + 0.5, y = rep(2:n2, each = 2) - 0.5),
+            aes(x = x, y = y, group = y)) + # Horizonal lines
+  xlab("Position")
+```
 
