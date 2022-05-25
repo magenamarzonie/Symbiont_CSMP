@@ -128,11 +128,12 @@ pver_vectors <- as.data.frame(os_pver_backward$CCA$biplot) %>%
 #plot PCoA
 g1 = ggplot(pver_scores, aes(x = dbRDA1, y = dbRDA2)) +
   geom_point(aes(fill = Reef.x), size = 4, shape = 21) +
+    facet_wrap(~Reef.x) +
   #geom_encircle(aes(group = k), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
-  geom_text(data = pver_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 3) +
+  #geom_text(data = pver_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 3) +
   geom_segment(data = pver_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.8, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
-  theme(legend.position = "none", aspect.ratio = 1) +
-  scale_fill_viridis_d(option = "magma")
+  theme(legend.position = "none", aspect.ratio = 1) 
+  #scale_fill_viridis_d(option = "magma")
 
 g1
 ```
@@ -142,7 +143,9 @@ g1
 
 #attemp to run variance partitioning code; not quite working 
 ```{r}
-#varpart(dist_pver ~ Depth + maxDHW + GPS_S, data = adonis_meta_pver)
+varp = varpart(dist_pver, ~ Depth, ~maxDHW, ~GPS_S, data = adonis_meta_pver)
+
+plot(varp, digits = 2, Xnames = c("Depth", "maxDHW", "GPS_S"), bg = c("navy", "tomato", "orange"))
 ```
 
 
@@ -203,11 +206,11 @@ pmea_vectors <- as.data.frame(os_pmea_backward$CCA$biplot) %>%
 g2 = ggplot(pmea_scores, aes(x = dbRDA1, y = dbRDA2)) +
   geom_point(aes(fill = Reef.x), size = 4, shape = 21) +
   #ggalt::geom_encircle(aes(group = Reef.x), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
-  #facet_wrap(~Reef.x) +
+  facet_wrap(~Reef.x) +
   geom_text(data = pmea_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
   geom_segment(data = pmea_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
-  theme(legend.position = "right", aspect.ratio = 1) +
-  scale_fill_viridis_d(option = "magma")
+  theme(legend.position = "right", aspect.ratio = 1) 
+ # scale_fill_viridis_d(option = "magma")
 
 g2
 
@@ -289,8 +292,15 @@ g3
 **A. humilis**
 ```{r}
 #importing unifrac distances for analysis 
+
+#removing outlier samples from the dbRDA output. Optional step! Choose an option
+dbrda_outliers <- c("Plate7_D006", "Plate6_E009", "Plate6_G009", "Plate6_D012", "Plate7_H009", "Plate7_A010", "Plate6_B012")
+#dist_acro <- as.dist(du_acro, diag = FALSE)
+du_acro.original = du_acro
+du_acro <- du_acro[!row.names(du_acro) %in% dbrda_outliers, !colnames(du_acro) %in% dbrda_outliers]
 dist_acro <- as.dist(du_acro, diag = FALSE)
-dim(du_acro)
+
+
 
 adonis_meta_acro <- full_meta2 %>%
   dplyr::select(plate_position, Sector, Reef.x, Site, Species, 
@@ -348,13 +358,21 @@ acro_vectors <- as.data.frame(os_acro_backward$CCA$biplot) %>%
 g4 = ggplot(acro_scores, aes(x = dbRDA1, y = dbRDA2)) +
   geom_point(aes(fill = Reef.x), size = 4, shape = 21) +
   #ggalt::geom_encircle(aes(group = Reef.x), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
-  #facet_wrap(~Reef.x) +
-  geom_text(data = acro_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
+  facet_wrap(~Reef.x) +
+ # geom_text(data = acro_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
   geom_segment(data = acro_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
-  theme(legend.position = "none", aspect.ratio = 1) + 
+  theme(aspect.ratio = 1) +
+  theme_light()
   scale_fill_viridis_d(option = "magma")
 
 g4
+```
+```{r}
+ggplot(acro_scores, aes(x = dbRDA1, y = dbRDA2)) +
+  geom_text(data = acro_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
+  geom_segment(data = acro_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
+  theme(aspect.ratio = 1) +
+  theme_light()
 ```
 
 ```{r}
@@ -365,11 +383,9 @@ acro_outliers = acro_scores %>% filter(dbRDA2 < -1)
 
 acro_new = acro_scores %>% filter(dbRDA2 > -1)
 
-acro_new = acro_scores %>% 
-  filter(plate_position != c("Plate7_D006", "Plate6_E009", "Plate6_G009", "Plate6_D012", "Plate7_H009", "Plate7_A010", "Plate6_B012"))
 
 
-g5 = ggplot(acro_new, aes(x = dbRDA1, y = dbRDA2)) +
+g4 = ggplot(acro_scores, aes(x = dbRDA1, y = dbRDA2)) +
   geom_point(aes(fill = Reef.x), size = 4, shape = 21) +
   #ggalt::geom_encircle(aes(group = Reef.x), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
   #facet_wrap(~Reef.x) +
@@ -378,9 +394,26 @@ g5 = ggplot(acro_new, aes(x = dbRDA1, y = dbRDA2)) +
   theme(legend.position = "none", aspect.ratio = 1) + 
   scale_fill_viridis_d(option = "magma")
 
-g5
+g4
+
+acro_outliers %>% pull(plate_position)
 ```
 
+
+```{r}
+acro_new = acro_scores %>% 
+  filter(plate_position != c("Plate7_D006", "Plate6_E009", "Plate6_G009", "Plate6_D012", "Plate7_H009", "Plate7_A010", "Plate6_B012"))
+
+
+ord_acro
+```
+
+
+```{r}
+varp_acro = varpart(dist_acro, ~ DHW3, ~DHW6, ~GPS_S, ~recent.maxDHW,  data = adonis_meta_acro)
+
+plot(varp_acro, digits = 2, Xnames = c("DHW3", "DHW6", "GPS_S", "recent.maxDHW"), bg = c("navy", "tomato", "orange", "green"))
+```
 
 ```{r}
 library(ggpubr)
