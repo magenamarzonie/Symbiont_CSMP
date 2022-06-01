@@ -112,7 +112,7 @@ sort(vif.cca(ord_pver))
 #     14.428485 
 
 # Use ordistep to further refine the model
-os_pver_backward <- ordistep(ord_pver, direction = "backward", trace = FALSE)
+os_pver_backward <- ordistep(ord_pver, direction = "backward", trace = FALSE, permutations = 9999)
 anova(os_pver_backward, by = 'margin')
 plot(os_pver_backward)
 
@@ -141,13 +141,13 @@ g1
 
 
 
-#attemp to run variance partitioning code; not quite working 
+#Variance partitioning to extract individual contributions. This function uses adjusted R-squared in dbRDA. Collinear variables are allowed to be tested. 
 ```{r}
-varp = varpart(dist_pver, ~ Depth, ~maxDHW, ~GPS_S, data = adonis_meta_pver)
+varp = varpart(dist_pver, ~ Depth, ~DHW3, ~GPS_S, data = adonis_meta_pver)
 
-plot(varp, digits = 2, Xnames = c("Depth", "maxDHW", "GPS_S"), bg = c("navy", "tomato", "orange"))
+plot(varp, digits = 2, Xnames = c("Depth", "DHW3", "GPS_S"), bg = c("navy", "tomato", "orange"))
 ```
-
+**For P. verrucosa symbionts, environmental drivers tested are not explaining much variation (residuals = 0.96). What else could be driving P. verrucosa communities? It does not seem that we are picking up on it ** 
 
 **P. meandrina** 
 ```{r}
@@ -192,7 +192,7 @@ sort(vif.cca(ord_pmea))
  #     1.163363      1.422231      1.891411      2.247049      4.144833      5.076538     10.220901     12.225265 
 
 # Use ordistep to further refine the model
-os_pmea_backward <- ordistep(ord_pmea, direction = "backward")
+os_pmea_backward <- ordistep(ord_pmea, direction = "backward", permutations = 999)
 anova(os_pmea_backward, by = 'margin')
 plot(os_pmea_backward)
 
@@ -215,6 +215,14 @@ g2 = ggplot(pmea_scores, aes(x = dbRDA1, y = dbRDA2)) +
 g2
 
 ```
+
+```{r}
+varp_pmea = varpart(dist_pmea, ~DHW6, ~catBleaching, ~varSST, ~GPS_S, data = adonis_meta_pmea)
+
+plot(varp_pmea, digits = 2, Xnames = c("DHW6", "catBleaching", "varSST", "GPS_S"), bg = c("navy", "tomato", "orange", "green"))
+```
+**There is a strong latitudinal break in the P. meandrina samples that reflects the two 'sub-groups' of symbionts present. This is highlighted by the majority of influence explained by latitude (GPS_S) in the model. GPS_S explains at least 4x as much variation as any of the other factors present, including bleaching condition of corals or variation in SST ** 
+
 
 
 ```{r}
@@ -278,8 +286,8 @@ punk_vectors <- as.data.frame(os_punk_backward$CCA$biplot) %>%
 g3 = ggplot(punk_scores, aes(x = dbRDA1, y = dbRDA2)) +
   geom_point(aes(fill = Reef.x), size = 4, shape = 21) +
   #ggalt::geom_encircle(aes(group = Reef.x), fill = "grey50", s_shape = 1, expand = 0, alpha = 0.2, show.legend = FALSE) +
-  #facet_wrap(~Reef.x) +
-  geom_text(data = punk_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
+  facet_wrap(~Reef.x) +
+ # geom_text(data = punk_vectors, aes(x = dbRDA1, y = dbRDA2, label = factors), size = 4) +
   geom_segment(data = punk_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
   theme(legend.position = "none", aspect.ratio = 1) +
   scale_fill_viridis_d(option = "magma")
@@ -287,6 +295,16 @@ g3 = ggplot(punk_scores, aes(x = dbRDA1, y = dbRDA2)) +
 g3
 
 ```
+
+
+
+```{r}
+varp_punk = varpart(dist_punk, ~GPS_S, ~catBleaching, ~varSST,  data = adonis_meta_punk)
+
+plot(varp_punk, digits = 2, Xnames = c("GPS_S", "catBleaching", "varSST"), bg = c("navy", "tomato", "orange"))
+```
+**Similar to P. meandrina, the unknown host symbionts are highly driven by latitude compared to other drivers. The influence of GPS_S is 3-times higher than the influence of bleaching condition ** 
+
 
 
 **A. humilis**
@@ -363,7 +381,7 @@ g4 = ggplot(acro_scores, aes(x = dbRDA1, y = dbRDA2)) +
   geom_segment(data = acro_vectors, aes(x = 0, xend = dbRDA1, y = 0, yend = dbRDA2), size = 0.5, arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
   theme(aspect.ratio = 1) +
   theme_light()
-  scale_fill_viridis_d(option = "magma")
+  #scale_fill_viridis_d(option = "magma")
 
 g4
 ```
@@ -378,6 +396,7 @@ ggplot(acro_scores, aes(x = dbRDA1, y = dbRDA2)) +
 ```{r}
 #which samples are outliers in the acropora ordination? 
 acro_outliers = acro_scores %>% filter(dbRDA2 < -1)
+acro_outliers %>% pull(plate_position)
 
 #outlier samples are from Moore, Holmes and Osprey 
 
@@ -395,8 +414,6 @@ g4 = ggplot(acro_scores, aes(x = dbRDA1, y = dbRDA2)) +
   scale_fill_viridis_d(option = "magma")
 
 g4
-
-acro_outliers %>% pull(plate_position)
 ```
 
 
@@ -409,11 +426,22 @@ ord_acro
 ```
 
 
+Variation partitioning based on dbRDA results. 
 ```{r}
-varp_acro = varpart(dist_acro, ~ DHW3, ~DHW6, ~GPS_S, ~recent.maxDHW,  data = adonis_meta_acro)
+varp_acro = varpart(dist_acro, ~ Depth, ~DHW6, ~GPS_S, ~recent.maxDHW,  data = adonis_meta_acro)
 
-plot(varp_acro, digits = 2, Xnames = c("DHW3", "DHW6", "GPS_S", "recent.maxDHW"), bg = c("navy", "tomato", "orange", "green"))
+plot(varp_acro, digits = 2, Xnames = c("Depth", "DHW6", "GPS_S", "recent.maxDHW"), bg = c("navy", "tomato", "orange", "green"))
 ```
+**Recent max DHW is explaining the most variability in symbiont communities on it's own (4.1% of variability). In contrast, depth seems to explain very little in terms of symbiont communities (0.7%). ** 
+
+**The lack of influence of depth could be attributed to the nutrient poor waters of the Coral Sea and light availability compared to that of the GBR or other regions where depth maintains a greater influence ** 
+
+Locally driven (acro) v. connectivity driven (poci)
+
+```{r}
+4.1/0.7
+```
+
 
 ```{r}
 library(ggpubr)
@@ -460,4 +488,4 @@ Fig 3: (half) ORDINATION plots
 Fig 4: (half) tanglegram 
 
 
-It seems that within hosts, the symbiont communities respond to different environmental pressures. Communities of C. latusorum have 
+It seems that within hosts, the symbiont communities respond to different environmental pressures. 
