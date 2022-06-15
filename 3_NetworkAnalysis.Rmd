@@ -1,0 +1,59 @@
+---
+title: "3_NetworkAnalysis"
+author: "Magena Marzonie"
+date: "15/06/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+-co-occurence network. 
+network analysis. nodes reflect the geography. 
+from network you extract the important sequences. 
+
+list of sequences that share edges and sequences that do not share edges. 
+- how do people challenge networks w variables external to the network?
+- cut-offs for the sequences we do not ‘care’ about. and the sequences that we do. 
+- remove sequences that are everywhere. 
+- keep simplifying until you have threshold where structure is clear. 
+i graph
+g graph. port for i graph objects straight into ggplot 
+
+
+How do we identify which sequences are driving these difference? 
+- Best way to do presence/absence scores at reefs? 
+
+```{r}
+#load sequence data
+load("Data/poci_seqs.Rdata")
+load("Data/pver_seqs.Rdata")
+load("Data/pmea_seqs.Rdata")
+load("Data/punk_seqs.Rdata")
+load("Data/acro_seqs.Rdata")
+```
+
+```{r}
+#list of sequences per reef. group by 
+pmea_seqs %>% group_by(Reef, name) %>% 
+  dplyr::summarise(n = dplyr::n()) %>% 
+  spread(key = Reef, value = n)
+```
+
+Vignette for ggnet2 (Network analysis) that uses ggplot2 :  https://briatte.github.io/ggnet/
+```{r, warning = FALSE}
+#install.packages("GGally")
+library(GGally)
+library(network)
+library(sna)
+library(ggplot2)
+library(RColorBrewer)
+library(intergraph)
+```
+
+
+```{r}
+
+```
+
