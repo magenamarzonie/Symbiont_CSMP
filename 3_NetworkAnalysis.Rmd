@@ -52,8 +52,3 @@ library(RColorBrewer)
 library(intergraph)
 ```
 
-
-```{r}
-
-```
-
