@@ -468,6 +468,15 @@ Fig3
 ```
 
 
+```{r}
+save(adonis_meta_acro, file = "Data/adonis_meta_acro.Rdata")
+save(adonis_meta_pver, file = "Data/adonis_meta_pver.Rdata")
+save(adonis_meta_pmea, file = "Data/adonis_meta_pmea.Rdata")
+save(adonis_meta_punk, file = "Data/adonis_meta_punk.Rdata")
+
+```
+
+
 **Significant factors for symbionts within each host species ** 
 P. verrucosa: Depth *, DHW3 *, latitude ***
 P. meandrina: DHW6 *, varSST **, latitude ***

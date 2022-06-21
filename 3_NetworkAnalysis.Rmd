@@ -9,11 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
--co-occurence network. 
-network analysis. nodes reflect the geography. 
-from network you extract the important sequences. 
 
-list of sequences that share edges and sequences that do not share edges. 
 - how do people challenge networks w variables external to the network?
 - cut-offs for the sequences we do not ‘care’ about. and the sequences that we do. 
 - remove sequences that are everywhere. 
@@ -21,25 +17,9 @@ list of sequences that share edges and sequences that do not share edges.
 i graph
 g graph. port for i graph objects straight into ggplot 
 
+https://github.com/thomasp85/ggraph
+https://www.data-imaginist.com/2017/ggraph-introduction-layouts/
 
-How do we identify which sequences are driving these difference? 
-- Best way to do presence/absence scores at reefs? 
-
-```{r}
-#load sequence data
-load("Data/poci_seqs.Rdata")
-load("Data/pver_seqs.Rdata")
-load("Data/pmea_seqs.Rdata")
-load("Data/punk_seqs.Rdata")
-load("Data/acro_seqs.Rdata")
-```
-
-```{r}
-#list of sequences per reef. group by 
-pmea_seqs %>% group_by(Reef, name) %>% 
-  dplyr::summarise(n = dplyr::n()) %>% 
-  spread(key = Reef, value = n)
-```
 
 Vignette for ggnet2 (Network analysis) that uses ggplot2 :  https://briatte.github.io/ggnet/
 ```{r, warning = FALSE}
@@ -52,3 +32,67 @@ library(RColorBrewer)
 library(intergraph)
 ```
 
+How do we identify which sequences are driving these difference? 
+- Best way to do presence/absence scores at reefs? 
+
+```{r}
+#load sequence data
+load("Data/pver_seqs.Rdata")
+load("Data/pmea_seqs.Rdata")
+load("Data/punk_seqs.Rdata")
+load("Data/acro_seqs.Rdata")
+
+#load environmental data
+load("Data/adonis_meta_pver.Rdata")
+load("Data/adonis_meta_pmea.Rdata")
+load("Data/adonis_meta_punk.Rdata")
+load("Data/adonis_meta_acro.Rdata")
+```
+
+```{r}
+#list of sequences per reef. 
+pmea_seqreef <- pmea_seqs %>% 
+distinct(name, Reef)
+
+remove_list <- pmea_seqreef %>% dplyr::count(name) %>% filter(n == 13) %>% mutate(name = as.character(name)) %>% pull(name)
+
+pmea_seqreef_diagnostic <- pmea_seqreef %>%
+  filter(name %in% remove_list)
+
+
+#then gather this into long format into source/target format. determine edges 
+pmea_edges = pmea_seqreef %>% gather(Reef, SeqCount, 2:14) %>% 
+  select(name, Reef)
+```
+#Two dataframes
+1) node list and edge list: samples / sequences 
+2) node list and edge list sequences / sequences 
+
+
+list of sequences that share edges and sequences that do not share edges. 
+```{r}
+
+```
+
+
+
+
+
+-co-occurence network. 
+network analysis. nodes reflect the geography. 
+from network you extract the important sequences. 
+
+
+
+```{r}
+# root URL
+r = "https://raw.githubusercontent.com/briatte/ggnet/master/"
+
+# read nodes
+v = read.csv(paste0(r, "inst/extdata/nodes.tsv"), sep = "\t")
+names(v)
+
+# read edges
+e = read.csv(paste0(r, "inst/extdata/network.tsv"), sep = "\t")
+names(e)
+```
